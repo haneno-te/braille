@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>キーボード・コマンド学習</title>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+    body { background:#000; color:#fff; font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic',sans-serif; font-weight:700; display:flex; flex-direction:column; align-items:center; }
+    .screen { display:none; width:100%; max-width:540px; min-height:100vh; flex-direction:column; padding:14px 16px 36px; }
+    .screen.active { display:flex; }
+
+    /* BUTTONS */
+    .btn { display:block; width:100%; min-height:64px; padding:12px 20px; border:2px solid #fff; border-radius:14px; background:transparent; color:#fff; font-size:19px; font-weight:700; font-family:inherit; cursor:pointer; text-align:center; margin-bottom:12px; line-height:1.4; }
+    .btn:active { background:#1c1c1c; }
+    .btn-ok  { border-color:#4ade80; color:#4ade80; }
+    .btn-ok:active { background:#0a2316; }
+    .btn-ng  { border-color:#ff3333; color:#ff3333; }
+    .btn-ng:active { background:#3a0000; }
+    .btn-dim { border-color:#fff; color:#fff; }
+    .btn-dim:active { background:#222; }
+    .btn-gold { border-color:#ffe033; color:#ffe033; }
+    .btn-gold:active { background:#2a1a00; }
+
+    /* BACK */
+    .back { background:transparent; border:none; color:#fff; font-size:18px; font-weight:700; font-family:inherit; cursor:pointer; padding:4px 0 14px; align-self:flex-start; }
+    .back:active { opacity:.6; }
+
+    /* NAV ROW */
+    .nav-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+
+    /* SCORE */
+    .score { width:100%; background:#111; border:1.5px solid #fff; border-radius:10px; padding:9px 16px; font-size:17px; color:#fff; text-align:center; margin-bottom:14px; }
+
+    /* SECTION LABEL */
+    .sec-label { font-size:13px; color:#fff; text-align:center; letter-spacing:.1em; margin-bottom:12px; }
+
+    /* フィードバック＋次へ */
+    .fb-row { display:flex; gap:9px; width:100%; margin-bottom:12px; min-height:52px; visibility:hidden; }
+    .fb-row.show { visibility:visible; }
+    .fb-text { flex:1; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; border:2px solid transparent; padding:8px; text-align:center; line-height:1.3; }
+    .fb-text.ok { background:#052016; border-color:#4ade80; color:#4ade80; }
+    .fb-text.ng { background:#3a0000; border-color:#ff3333; color:#ff3333; }
+    .fb-next { min-width:90px; min-height:52px; border:2px solid #fff; border-radius:12px; background:transparent; color:#fff; font-size:16px; font-weight:700; font-family:inherit; cursor:pointer; }
+    .fb-next:active { background:#1c1c1c; }
+
+    /* 4択 */
+    .choices { display:flex; flex-direction:column; gap:9px; width:100%; margin-bottom:12px; }
+    .ch { width:100%; min-height:64px; background:#0d0d0d; border:2px solid #fff; border-radius:14px; color:#fff; font-size:17px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:10px 14px; text-align:center; line-height:1.3; }
+    .ch:active { background:#1a1a1a; }
+    .ch.ok  { border-color:#4ade80; background:#052016; color:#4ade80; }
+    .ch.ng  { border-color:#ff3333; background:#3a0000; color:#ff3333; }
+    .ch.dim { border-color:#fff; color:#fff; opacity:.35; pointer-events:none; }
+
+    /* 問題ボックス */
+    .q-box { width:100%; min-height:90px; background:#0d0d0d; border:2px solid #fff; border-radius:16px; display:flex; align-items:center; justify-content:center; margin-bottom:14px; padding:16px; text-align:center; font-size:20px; line-height:1.4; }
+
+    /* SVGキーボードラッパー */
+    .kbd-wrap { width:100%; background:#0d0d0d; border:1.5px solid #fff; border-radius:16px; padding:10px 8px; margin-bottom:12px; }
+    .kbd-wrap svg { width:100%; height:auto; display:block; touch-action:manipulation; }
+    .kbd-hint { font-size:12px; color:#fff; text-align:center; border:1px solid #fff; border-radius:8px; padding:6px; margin-bottom:10px; }
+
+    /* 選択中キー表示 */
+    .selected-area { width:100%; background:#0d0d0d; border:1.5px solid #fff; border-radius:12px; padding:10px 14px; margin-bottom:12px; text-align:center; }
+    .selected-label { font-size:12px; color:#fff; margin-bottom:4px; }
+    .selected-keys { font-size:18px; color:#ffe033; min-height:28px; }
+
+    /* RESULT */
+    .result-box { width:100%; background:#0d0d0d; border:2px solid #fff; border-radius:20px; padding:28px 20px; text-align:center; margin-bottom:20px; }
+    .result-pct { font-size:64px; color:#4ade80; line-height:1; margin-bottom:8px; }
+    .result-sub { font-size:18px; color:#fff; }
+
+    /* 辞書 */
+    .dict-cat { font-size:14px; color:#ffe033; border:1px solid #ffe033; border-radius:8px; padding:4px 10px; margin-bottom:10px; display:inline-block; }
+    .dict-item { width:100%; background:#0d0d0d; border:1.5px solid #fff; border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+    .dict-cmd  { font-size:16px; color:#fff; margin-bottom:6px; }
+    .dict-keys { font-size:18px; color:#ffe033; }
+    .dict-note { font-size:12px; color:#fff; margin-top:4px; }
+    .dict-scroll { width:100%; overflow-y:auto; }
+  </style>
+</head>
+<body>
+
+<!-- ===== HOME ===== -->
+<div id="s-home" class="screen active">
+  <div style="width:100%;display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <button class="back" onclick="location.href='app_braille.html'" style="font-size:14px">← 点字練習へ</button>
+  </div>
+  <div style="text-align:center;margin-bottom:32px;">
+    <div style="font-size:22px;margin-bottom:6px;">キーボード・コマンド学習</div>
+    <div style="font-size:13px;color:#fff;">BraileSense Six 操作習得</div>
+  </div>
+  <button class="btn" onclick="go('s-kbd-top')">⌨️ キーボード学習</button>
+  <button class="btn btn-gold" onclick="go('s-cmd-top')">📋 コマンド学習</button>
+  <button class="btn" onclick="go('s-dict')">📕 コマンド辞書</button>
+</div>
+
+<!-- ===== キーボード学習TOP ===== -->
+<div id="s-kbd-top" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="sec-label" style="font-size:18px;margin-bottom:20px;">⌨️ キーボード学習</div>
+  <button class="btn" onclick="startKbd('text2svg')">🔤 → ⌨️　テキスト問題 → キータップ回答</button>
+  <button class="btn" onclick="startKbd('svg2text')">⌨️ → 🔤　キー点灯 → テキスト4択回答</button>
+</div>
+
+<!-- ===== コマンド学習TOP ===== -->
+<div id="s-cmd-top" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="sec-label" style="font-size:18px;margin-bottom:20px;">📋 コマンド学習</div>
+  <button class="btn" onclick="startCmd('text2text')">📝 → 📝　動作 → テキスト4択回答</button>
+  <button class="btn" onclick="startCmd('text2svg')">📝 → ⌨️　動作 → キータップ回答</button>
+  <button class="btn" onclick="startCmd('svg2text')">⌨️ → 📝　キー点灯 → 動作4択回答</button>
+  <button class="btn btn-gold" onclick="startCmd('hard')">🔥 高難度：紛らわしいコマンド4択</button>
+</div>
+
+<!-- ===== キーボード学習：テキスト→SVGタップ ===== -->
+<div id="s-kbd-text2svg" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="score" id="kbd-t2s-score">1 / 11</div>
+  <div class="q-box" id="kbd-t2s-q">問題</div>
+  <div class="kbd-hint">📱 横画面推奨 ／ ピンチで拡大できます</div>
+  <div class="kbd-wrap"><svg id="kbd-t2s-svg" viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div class="selected-area">
+    <div class="selected-label">タップしたキー：</div>
+    <div class="selected-keys" id="kbd-t2s-sel">（未選択）</div>
+  </div>
+  <div class="fb-row" id="kbd-t2s-fb">
+    <div class="fb-text" id="kbd-t2s-fbt"></div>
+    <button class="fb-next" onclick="kbdT2SNext()">次へ →</button>
+  </div>
+  <button class="btn" id="kbd-t2s-submit" onclick="kbdT2SSubmit()">回答する</button>
+</div>
+
+<!-- ===== キーボード学習：SVG点灯→テキスト4択 ===== -->
+<div id="s-kbd-svg2text" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="score" id="kbd-s2t-score">1 / 11</div>
+  <div class="q-box" style="font-size:15px;">👆 点灯しているキーの名前は？</div>
+  <div class="kbd-hint">📱 横画面推奨</div>
+  <div class="kbd-wrap"><svg id="kbd-s2t-svg" viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div class="choices" id="kbd-s2t-choices"></div>
+  <div class="fb-row" id="kbd-s2t-fb">
+    <div class="fb-text" id="kbd-s2t-fbt"></div>
+    <button class="fb-next" onclick="kbdS2TNext()">次へ →</button>
+  </div>
+</div>
+
+<!-- ===== コマンド学習：テキスト→テキスト4択 ===== -->
+<div id="s-cmd-text2text" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="score" id="cmd-t2t-score">1 / 30</div>
+  <div class="q-box" id="cmd-t2t-q">問題</div>
+  <div class="choices" id="cmd-t2t-choices"></div>
+  <div class="fb-row" id="cmd-t2t-fb">
+    <div class="fb-text" id="cmd-t2t-fbt"></div>
+    <button class="fb-next" onclick="cmdT2TNext()">次へ →</button>
+  </div>
+</div>
+
+<!-- ===== コマンド学習：テキスト→SVGタップ ===== -->
+<div id="s-cmd-text2svg" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="score" id="cmd-t2s-score">1 / 30</div>
+  <div class="q-box" id="cmd-t2s-q">問題</div>
+  <div class="kbd-hint">📱 横画面推奨 ／ 複数キーを順にタップ</div>
+  <div class="kbd-wrap"><svg id="cmd-t2s-svg" viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div class="selected-area">
+    <div class="selected-label">タップしたキー：</div>
+    <div class="selected-keys" id="cmd-t2s-sel">（未選択）</div>
+  </div>
+  <div class="fb-row" id="cmd-t2s-fb">
+    <div class="fb-text" id="cmd-t2s-fbt"></div>
+    <button class="fb-next" onclick="cmdT2SNext()">次へ →</button>
+  </div>
+  <button class="btn" id="cmd-t2s-submit" onclick="cmdT2SSubmit()">回答する</button>
+</div>
+
+<!-- ===== コマンド学習：SVG点灯→テキスト4択 ===== -->
+<div id="s-cmd-svg2text" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="score" id="cmd-s2t-score">1 / 30</div>
+  <div class="q-box" style="font-size:15px;">👆 点灯しているキーの組み合わせは何のコマンド？</div>
+  <div class="kbd-hint">📱 横画面推奨</div>
+  <div class="kbd-wrap"><svg id="cmd-s2t-svg" viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div class="choices" id="cmd-s2t-choices"></div>
+  <div class="fb-row" id="cmd-s2t-fb">
+    <div class="fb-text" id="cmd-s2t-fbt"></div>
+    <button class="fb-next" onclick="cmdS2TNext()">次へ →</button>
+  </div>
+</div>
+
+<!-- ===== コマンド学習：高難度 ===== -->
+<div id="s-cmd-hard" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="score" id="cmd-hard-score">1 / 20</div>
+  <div style="text-align:center;color:#ffe033;font-size:14px;margin-bottom:8px;">🔥 高難度：似ているコマンドから正解を選べ！</div>
+  <div class="q-box" id="cmd-hard-q">問題</div>
+  <div class="choices" id="cmd-hard-choices"></div>
+  <div class="fb-row" id="cmd-hard-fb">
+    <div class="fb-text" id="cmd-hard-fbt"></div>
+    <button class="fb-next" onclick="cmdHardNext()">次へ →</button>
+  </div>
+</div>
+
+<!-- ===== 結果画面 ===== -->
+<div id="s-result" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+    <div class="result-box">
+      <div class="result-pct" id="res-pct">100%</div>
+      <div class="result-sub" id="res-sub">30問中30問正解</div>
+    </div>
+    <button class="btn btn-ok" id="res-restart" onclick="">もう一度 🔄</button>
+    <button class="btn btn-dim" onclick="goBack()">モード選択に戻る</button>
+  </div>
+</div>
+
+<!-- ===== コマンド辞書 ===== -->
+<div id="s-dict" class="screen">
+  <div class="nav-row">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="go('s-home')" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="sec-label" style="font-size:18px;margin-bottom:16px;">📕 コマンド辞書</div>
+  <div class="dict-scroll" id="dict-body"></div>
+</div>
+
+<script>
+// ========== ナビゲーション ==========
+let navHistory = [];
+window.go = function go(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  navHistory.push(id);
+  window.scrollTo(0,0);
+}
+window.goBack = function goBack() {
+  if (navHistory.length <= 1) { go('s-home'); return; }
+  navHistory.pop();
+  const prev = navHistory[navHistory.length-1];
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(prev).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// 初期化：navHistoryにホームを積む
+navHistory = ['s-home'];
+// ハッシュで辞書に直接飛ぶ
+if (location.hash === '#dict') { go('s-dict'); }
+
+// ========== データ ==========
+
+// キーボードキー一覧
+const KEYS = [
+  { name:'点字キー 1',  role:'左手薬指。点1を入力する' },
+  { name:'点字キー 2',  role:'左手中指。点2を入力する' },
+  { name:'点字キー 3',  role:'左手人差し指。点3を入力する' },
+  { name:'点字キー 4',  role:'右手人差し指。点4を入力する' },
+  { name:'点字キー 5',  role:'右手中指。点5を入力する' },
+  { name:'点字キー 6',  role:'右手薬指。点6を入力する' },
+  { name:'バックスペース', role:'1文字削除・前に戻る' },
+  { name:'エンター',    role:'決定・改行' },
+  { name:'スペース',    role:'スペース入力・コマンド修飾キー' },
+  { name:'F1',         role:'メインメニューへ移動・アプリ起動修飾キー' },
+  { name:'F2',         role:'機能キー2' },
+  { name:'F3',         role:'タブ移動・アプリ起動修飾キー' },
+  { name:'F4',         role:'キャンセル・音量操作修飾キー' },
+  { name:'Ctrl',       role:'コントロールキー' },
+  { name:'Alt',        role:'オルトキー' },
+];
+
+// コマンドデータ
+const CMDS = [
+  // ナビゲーション
+  { cat:'ナビゲーション', cmd:'メインメニューに移動',       keys:['F1'] },
+  { cat:'ナビゲーション', cmd:'前の項目・行に移動',         keys:['Space','1'] },
+  { cat:'ナビゲーション', cmd:'次の項目・行に移動',         keys:['Space','4'] },
+  { cat:'ナビゲーション', cmd:'項目の先頭に移動',           keys:['Space','1','2','3'] },
+  { cat:'ナビゲーション', cmd:'項目の末尾に移動',           keys:['Space','4','5','6'] },
+  { cat:'ナビゲーション', cmd:'左に移動',                  keys:['Space','3'] },
+  { cat:'ナビゲーション', cmd:'右に移動',                  keys:['Space','6'] },
+  { cat:'ナビゲーション', cmd:'タブ移動',                  keys:['F3'], alt:['Space','4','5'] },
+  { cat:'ナビゲーション', cmd:'逆タブ移動',                keys:['Space','F3'], alt:['Space','1','2'] },
+  { cat:'ナビゲーション', cmd:'実行中アプリ一覧を表示',     keys:['F1','F4'] },
+  { cat:'ナビゲーション', cmd:'実行中アプリを切り替え',     keys:['F2','F3'] },
+  { cat:'ナビゲーション', cmd:'開いているアプリをすべて閉じる', keys:['Enter','Space','D'] },
+  { cat:'ナビゲーション', cmd:'プログラムを終了',           keys:['Space','Z'] },
+  { cat:'ナビゲーション', cmd:'キャンセル・中止して戻る',   keys:['F4'], alt:['Space','E'] },
+  { cat:'ナビゲーション', cmd:'ヘルプを表示',              keys:['Space','H'] },
+  // システム
+  { cat:'システム設定・情報', cmd:'日付と時刻を確認',           keys:['Space','T'] },
+  { cat:'システム設定・情報', cmd:'バッテリー残量を確認',        keys:['Space','1','6'], note:'メインメニューで' },
+  { cat:'システム設定・情報', cmd:'ネットワーク接続状態を確認',  keys:['Space','N'], note:'メインメニューで' },
+  { cat:'システム設定・情報', cmd:'フラッシュディスクの空き容量を確認', keys:['Space','I'], note:'メインメニューで' },
+  { cat:'システム設定・情報', cmd:'音声の音量を上げる',          keys:['Backspace','F4'] },
+  { cat:'システム設定・情報', cmd:'音声の音量を下げる',          keys:['Backspace','F1'] },
+  { cat:'システム設定・情報', cmd:'読み上げの速さを上げる',      keys:['Space','F4'] },
+  { cat:'システム設定・情報', cmd:'読み上げの速さを下げる',      keys:['Space','F1'] },
+  { cat:'システム設定・情報', cmd:'音声の読み上げをオン/オフ',   keys:['Backspace','F2'] },
+  { cat:'システム設定・情報', cmd:'点字表示をオン/オフ',         keys:['Backspace','F3'] },
+  { cat:'システム設定・情報', cmd:'メディア音量を上げる',        keys:['Backspace','Space','F4'] },
+  { cat:'システム設定・情報', cmd:'メディア音量を下げる',        keys:['Backspace','Space','F1'] },
+  // アプリ起動
+  { cat:'アプリ一発起動', cmd:'ファイル管理を開く',      keys:['F1','F'] },
+  { cat:'アプリ一発起動', cmd:'ワードプロセッサを開く',  keys:['F1','W'] },
+  { cat:'アプリ一発起動', cmd:'ノートパッドを開く',      keys:['F1','N'] },
+  { cat:'アプリ一発起動', cmd:'電子メールを開く',        keys:['F1','E'] },
+  { cat:'アプリ一発起動', cmd:'メディアプレーヤーを開く',keys:['F1','M'] },
+  { cat:'アプリ一発起動', cmd:'Webブラウザを開く',       keys:['F1','B'] },
+  { cat:'アプリ一発起動', cmd:'Google検索を開く',        keys:['F1','G'] },
+  { cat:'アプリ一発起動', cmd:'計算機を開く',            keys:['F3','C'] },
+  { cat:'アプリ一発起動', cmd:'アラームを設定',          keys:['F3','A'] },
+  { cat:'アプリ一発起動', cmd:'サピエを開く',            keys:['F1','Z'] },
+];
+
+// キー表示名
+function keysLabel(keys) { return keys.join(' ＋ '); }
+
+// ========== SVG生成 ==========
+// キー定義（idで検索できる形）
+const SVG_KEYS = [
+  { id:'1',    shape:'ellipse', cx:152, cy:76, rx:20, ry:15, label:'1',    labelX:152, labelY:80, border:'#fff', text:'#fff' },
+  { id:'2',    shape:'ellipse', cx:120, cy:72, rx:20, ry:15, label:'2',    labelX:120, labelY:76, border:'#fff', text:'#fff' },
+  { id:'3',    shape:'ellipse', cx:88,  cy:72, rx:20, ry:15, label:'3',    labelX:88,  labelY:76, border:'#fff', text:'#fff' },
+  { id:'4',    shape:'ellipse', cx:188, cy:76, rx:20, ry:15, label:'4',    labelX:188, labelY:80, border:'#fff', text:'#fff' },
+  { id:'5',    shape:'ellipse', cx:220, cy:72, rx:20, ry:15, label:'5',    labelX:220, labelY:76, border:'#fff', text:'#fff' },
+  { id:'6',    shape:'ellipse', cx:252, cy:72, rx:20, ry:15, label:'6',    labelX:252, labelY:76, border:'#fff', text:'#fff' },
+  { id:'Backspace', shape:'rect', x:8,  y:62, w:64, h:26, rx:5, label:'BS', labelX:40, labelY:79, border:'#4ade80', text:'#4ade80' },
+  { id:'Enter',     shape:'rect', x:268,y:62, w:60, h:26, rx:5, label:'ENT',labelX:298,labelY:79, border:'#4ade80', text:'#4ade80' },
+  { id:'F1',   shape:'rect', x:8,  y:102, w:32, h:22, rx:4, label:'F1', labelX:24, labelY:117, border:'#4ade80', text:'#4ade80' },
+  { id:'F2',   shape:'rect', x:46, y:102, w:28, h:22, rx:4, label:'F2', labelX:60, labelY:117, border:'#4ade80', text:'#4ade80' },
+  { id:'Ctrl', shape:'rect', x:80, y:102, w:30, h:22, rx:4, label:'Ctrl',labelX:95,labelY:117, border:'#4ade80', text:'#4ade80' },
+  { id:'Space',shape:'rect', x:116,y:102, w:108,h:22, rx:4, label:'Space',labelX:170,labelY:117,border:'#4ade80', text:'#4ade80' },
+  { id:'Alt',  shape:'rect', x:230,y:102, w:28, h:22, rx:4, label:'Alt', labelX:244,labelY:117, border:'#4ade80', text:'#4ade80' },
+  { id:'F3',   shape:'rect', x:264,y:102, w:28, h:22, rx:4, label:'F3', labelX:278,labelY:117, border:'#4ade80', text:'#4ade80' },
+  { id:'F4',   shape:'rect', x:298,y:102, w:30, h:22, rx:4, label:'F4', labelX:313,labelY:117, border:'#4ade80', text:'#4ade80' },
+];
+
+// コマンドのキー名→SVGキーIDの変換（点字キー1-6はそのまま）
+function cmdKeyToSvgId(k) {
+  if (k === 'Backspace') return 'Backspace';
+  if (k === 'Enter') return 'Enter';
+  return k; // F1,F2,F3,F4,Ctrl,Alt,Space,1-6,D,W等はそのまま
+}
+
+function buildSVG(svgEl, onTap, litKeys) {
+  // litKeys: 点灯させるキーID配列（null=タップ可能モード）
+  svgEl.innerHTML = '';
+  const ns = 'http://www.w3.org/2000/svg';
+
+  // 本体
+  const body = document.createElementNS(ns,'rect');
+  Object.assign(body,{});
+  body.setAttribute('x','2'); body.setAttribute('y','2');
+  body.setAttribute('width','336'); body.setAttribute('height','196');
+  body.setAttribute('rx','14'); body.setAttribute('fill','#111');
+  body.setAttribute('stroke','#fff'); body.setAttribute('stroke-width','1');
+  svgEl.appendChild(body);
+
+  // 液晶
+  const lcd = document.createElementNS(ns,'rect');
+  lcd.setAttribute('x','110'); lcd.setAttribute('y','10');
+  lcd.setAttribute('width','120'); lcd.setAttribute('height','22');
+  lcd.setAttribute('rx','4'); lcd.setAttribute('fill','#000');
+  lcd.setAttribute('stroke','#fff'); lcd.setAttribute('stroke-width','0.8');
+  svgEl.appendChild(lcd);
+  const lcdT = document.createElementNS(ns,'text');
+  lcdT.setAttribute('x','170'); lcdT.setAttribute('y','25');
+  lcdT.setAttribute('text-anchor','middle'); lcdT.setAttribute('font-size','7');
+  lcdT.setAttribute('fill','#fff'); lcdT.setAttribute('font-family','sans-serif');
+  lcdT.textContent = '液晶ディスプレイ';
+  svgEl.appendChild(lcdT);
+
+  // 点字ディスプレイ
+  const disp = document.createElementNS(ns,'rect');
+  disp.setAttribute('x','22'); disp.setAttribute('y','136');
+  disp.setAttribute('width','296'); disp.setAttribute('height','36');
+  disp.setAttribute('rx','4'); disp.setAttribute('fill','#0a0a0a');
+  disp.setAttribute('stroke','#fff'); disp.setAttribute('stroke-width','0.8');
+  disp.setAttribute('stroke-dasharray','3 2');
+  svgEl.appendChild(disp);
+  const dispT = document.createElementNS(ns,'text');
+  dispT.setAttribute('x','170'); dispT.setAttribute('y','158');
+  dispT.setAttribute('text-anchor','middle'); dispT.setAttribute('font-size','7');
+  dispT.setAttribute('fill','#fff'); dispT.setAttribute('font-family','sans-serif');
+  dispT.textContent = '点字ディスプレイ（32セル）';
+  svgEl.appendChild(dispT);
+
+  // スピーカー
+  [[42,22],[298,22]].forEach(([cx,cy])=>{
+    const sp = document.createElementNS(ns,'ellipse');
+    sp.setAttribute('cx',cx); sp.setAttribute('cy',cy);
+    sp.setAttribute('rx','18'); sp.setAttribute('ry','10');
+    sp.setAttribute('fill','none'); sp.setAttribute('stroke','#fff');
+    sp.setAttribute('stroke-width','0.8'); sp.setAttribute('stroke-dasharray','2 1.5');
+    svgEl.appendChild(sp);
+  });
+
+  // 各キー
+  SVG_KEYS.forEach(k => {
+    const isLit = litKeys && litKeys.includes(k.id);
+    const fillColor = isLit ? '#ffe033' : '#1a1a1a';
+    const textColor = isLit ? '#000' : k.text;
+    const g = document.createElementNS(ns,'g');
+    g.setAttribute('data-kid', k.id);
+    g.style.cursor = onTap ? 'pointer' : 'default';
+
+    let shape;
+    if (k.shape === 'ellipse') {
+      shape = document.createElementNS(ns,'ellipse');
+      shape.setAttribute('cx', k.cx); shape.setAttribute('cy', k.cy);
+      shape.setAttribute('rx', k.rx); shape.setAttribute('ry', k.ry);
+    } else {
+      shape = document.createElementNS(ns,'rect');
+      shape.setAttribute('x', k.x); shape.setAttribute('y', k.y);
+      shape.setAttribute('width', k.w); shape.setAttribute('height', k.h);
+      shape.setAttribute('rx', k.rx);
+    }
+    shape.setAttribute('fill', fillColor);
+    shape.setAttribute('stroke', k.border);
+    shape.setAttribute('stroke-width','1.2');
+    g.appendChild(shape);
+
+    const txt = document.createElementNS(ns,'text');
+    txt.setAttribute('x', k.labelX); txt.setAttribute('y', k.labelY);
+    txt.setAttribute('text-anchor','middle'); txt.setAttribute('font-size','7');
+    txt.setAttribute('fill', textColor);
+    txt.setAttribute('font-family','sans-serif'); txt.setAttribute('font-weight','bold');
+    txt.setAttribute('pointer-events','none');
+    txt.textContent = k.label;
+    g.appendChild(txt);
+
+    if (onTap) {
+      g.addEventListener('click', () => onTap(k.id, g, shape, txt));
+      g.addEventListener('touchend', (e) => { e.preventDefault(); onTap(k.id, g, shape, txt); });
+    }
+    svgEl.appendChild(g);
+  });
+}
+
+// ========== ユーティリティ ==========
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function pick4(correct, pool, keyFn) {
+  // pool から正解以外を3つ選ぶ
+  const others = shuffle(pool.filter(x=>keyFn(x)!==keyFn(correct))).slice(0,3);
+  return shuffle([correct,...others]);
+}
+function showResult(correct, total, restartFn) {
+  const pct = Math.round(correct/total*100);
+  document.getElementById('res-pct').textContent = pct+'%';
+  document.getElementById('res-sub').textContent = total+'問中'+correct+'問正解';
+  document.getElementById('res-restart').onclick = restartFn;
+  go('s-result');
+}
+
+// ========== キーボード学習：テキスト→SVGタップ ==========
+let kT2S = {};
+window.startKbd = function startKbd(mode) {
+  if (mode === 'text2svg') {
+    kT2S = { q: shuffle([...KEYS]), idx:0, correct:0, selected:null };
+    kT2SRender();
+    go('s-kbd-text2svg');
+  } else {
+    kS2T = { q: shuffle([...KEYS]), idx:0, correct:0 };
+    kS2TRender();
+    go('s-kbd-svg2text');
+  }
+}
+function kT2SRender() {
+  const item = kT2S.q[kT2S.idx];
+  document.getElementById('kbd-t2s-score').textContent = (kT2S.idx+1)+' / '+kT2S.q.length;
+  document.getElementById('kbd-t2s-q').textContent = '「'+item.name+'」はどれ？';
+  document.getElementById('kbd-t2s-sel').textContent = '（未選択）';
+  kT2S.selected = null;
+  const fb = document.getElementById('kbd-t2s-fb');
+  fb.classList.remove('show');
+  document.getElementById('kbd-t2s-fbt').textContent='';
+  document.getElementById('kbd-t2s-fbt').className='fb-text';
+  document.getElementById('kbd-t2s-submit').style.display='block';
+
+  buildSVG(document.getElementById('kbd-t2s-svg'), (kid,g,shape,txt)=>{
+    // 選択切替
+    if (kT2S.locked) return;
+    SVG_KEYS.forEach(k=>{
+      const gEl = document.querySelector('#kbd-t2s-svg [data-kid="'+k.id+'"]');
+      if (!gEl) return;
+      gEl.querySelector('ellipse,rect').setAttribute('fill','#1a1a1a');
+      gEl.querySelector('text').setAttribute('fill', k.text);
+    });
+    shape.setAttribute('fill','#ffe033');
+    txt.setAttribute('fill','#000');
+    kT2S.selected = kid;
+    document.getElementById('kbd-t2s-sel').textContent = kid;
+  }, null);
+  kT2S.locked = false;
+}
+window.kbdT2SSubmit = function kbdT2SSubmit() {
+  if (!kT2S.selected) { alert('キーをタップしてください'); return; }
+  const item = kT2S.q[kT2S.idx];
+  const correct = item.name.includes(kT2S.selected) || kT2S.selected === item.name
+    || item.name.startsWith('点字キー') && kT2S.selected === item.name.slice(-1);
+  // 点字キーの判定：「点字キー 1」→id='1'
+  const isCorrect = kT2S.selected === item.name || 
+    (item.name.startsWith('点字キー') && kT2S.selected === item.name.replace('点字キー ',''));
+  if (isCorrect) kT2S.correct++;
+  const fbt = document.getElementById('kbd-t2s-fbt');
+  fbt.textContent = isCorrect ? '正解！' : '残念！　正解は「'+item.name+'」';
+  fbt.className = 'fb-text '+(isCorrect?'ok':'ng');
+  document.getElementById('kbd-t2s-fb').classList.add('show');
+  document.getElementById('kbd-t2s-submit').style.display='none';
+  kT2S.locked = true;
+}
+window.kbdT2SNext = function kbdT2SNext() {
+  kT2S.idx++;
+  if (kT2S.idx >= kT2S.q.length) { showResult(kT2S.correct, kT2S.q.length, ()=>startKbd('text2svg')); return; }
+  kT2SRender();
+}
+
+// ========== キーボード学習：SVG点灯→テキスト4択 ==========
+let kS2T = {};
+function kS2TRender() {
+  const item = kS2T.q[kS2T.idx];
+  document.getElementById('kbd-s2t-score').textContent = (kS2T.idx+1)+' / '+kS2T.q.length;
+  // 正解キーIDを特定
+  const litId = item.name.startsWith('点字キー') ? item.name.replace('点字キー ','') : item.name;
+  buildSVG(document.getElementById('kbd-s2t-svg'), null, [litId]);
+
+  const fb = document.getElementById('kbd-s2t-fb');
+  fb.classList.remove('show');
+  document.getElementById('kbd-s2t-fbt').textContent='';
+  document.getElementById('kbd-s2t-fbt').className='fb-text';
+
+  const opts = pick4(item, KEYS, x=>x.name);
+  const choicesEl = document.getElementById('kbd-s2t-choices');
+  choicesEl.innerHTML='';
+  opts.forEach(opt=>{
+    const btn = document.createElement('button');
+    btn.className='ch';
+    btn.textContent = opt.name;
+    btn.onclick = ()=>{
+      if (kS2T.locked) return;
+      kS2T.locked = true;
+      const isCorrect = opt.name === item.name;
+      if (isCorrect) kS2T.correct++;
+      choicesEl.querySelectorAll('.ch').forEach(b=>{
+        if (b.textContent===item.name) b.classList.add('ok');
+        else if (b===btn && !isCorrect) b.classList.add('ng');
+        else b.classList.add('dim');
+      });
+      const fbt = document.getElementById('kbd-s2t-fbt');
+      fbt.textContent = isCorrect ? '正解！' : '残念！　正解は「'+item.name+'」';
+      fbt.className = 'fb-text '+(isCorrect?'ok':'ng');
+      fb.classList.add('show');
+    };
+    choicesEl.appendChild(btn);
+  });
+  kS2T.locked = false;
+}
+window.kbdS2TNext = function kbdS2TNext() {
+  kS2T.idx++;
+  if (kS2T.idx >= kS2T.q.length) { showResult(kS2T.correct, kS2T.q.length, ()=>startKbd('svg2text')); return; }
+  kS2TRender();
+}
+
+// ========== コマンド学習 ==========
+let cState = {};
+
+window.startCmd = function startCmd(mode) {
+  const pool = mode==='hard' ? shuffle([...CMDS]).slice(0,20) : shuffle([...CMDS]);
+  cState = { mode, q: pool, idx:0, correct:0 };
+  if (mode==='text2text') { cmdT2TRender(); go('s-cmd-text2text'); }
+  else if (mode==='text2svg') { cmdT2SRender(); go('s-cmd-text2svg'); }
+  else if (mode==='svg2text') { cmdS2TRender(); go('s-cmd-svg2text'); }
+  else { cmdHardRender(); go('s-cmd-hard'); }
+}
+
+// --- テキスト→テキスト4択 ---
+function cmdT2TRender() {
+  const item = cState.q[cState.idx];
+  document.getElementById('cmd-t2t-score').textContent = (cState.idx+1)+' / '+cState.q.length;
+  const altLabel = item.alt ? '（または '+keysLabel(item.alt)+'）' : '';
+  document.getElementById('cmd-t2t-q').textContent = '「'+keysLabel(item.keys)+'」'+altLabel+'\nは何のコマンド？';
+  const fb = document.getElementById('cmd-t2t-fb');
+  fb.classList.remove('show');
+  document.getElementById('cmd-t2t-fbt').textContent='';
+  document.getElementById('cmd-t2t-fbt').className='fb-text';
+  const opts = pick4(item, CMDS, x=>x.cmd);
+  const choicesEl = document.getElementById('cmd-t2t-choices');
+  choicesEl.innerHTML='';
+  opts.forEach(opt=>{
+    const btn=document.createElement('button');
+    btn.className='ch'; btn.textContent=opt.cmd;
+    btn.onclick=()=>{
+      if(cState.t2tLocked) return; cState.t2tLocked=true;
+      const ok=opt.cmd===item.cmd; if(ok) cState.correct++;
+      choicesEl.querySelectorAll('.ch').forEach(b=>{
+        if(b.textContent===item.cmd) b.classList.add('ok');
+        else if(b===btn&&!ok) b.classList.add('ng');
+        else b.classList.add('dim');
+      });
+      const fbt=document.getElementById('cmd-t2t-fbt');
+      fbt.textContent=ok?'正解！':'残念！　正解は「'+item.cmd+'」';
+      fbt.className='fb-text '+(ok?'ok':'ng');
+      fb.classList.add('show');
+    };
+    choicesEl.appendChild(btn);
+  });
+  cState.t2tLocked=false;
+}
+window.cmdT2TNext = function cmdT2TNext() {
+  cState.idx++;
+  if(cState.idx>=cState.q.length){showResult(cState.correct,cState.q.length,()=>startCmd('text2text'));return;}
+  cmdT2TRender();
+}
+
+// --- テキスト→SVGタップ ---
+let cmdT2Sselected=new Set();
+function cmdT2SRender() {
+  const item = cState.q[cState.idx];
+  document.getElementById('cmd-t2s-score').textContent=(cState.idx+1)+' / '+cState.q.length;
+  document.getElementById('cmd-t2s-q').textContent='「'+item.cmd+'」\nのキーをタップしてください'+(item.note?'\n（'+item.note+'）':'');
+  document.getElementById('cmd-t2s-sel').textContent='（未選択）';
+  cmdT2Sselected=new Set();
+  const fb=document.getElementById('cmd-t2s-fb');
+  fb.classList.remove('show');
+  document.getElementById('cmd-t2s-fbt').textContent='';
+  document.getElementById('cmd-t2s-fbt').className='fb-text';
+  document.getElementById('cmd-t2s-submit').style.display='block';
+  buildSVG(document.getElementById('cmd-t2s-svg'),(kid,g,shape,txt)=>{
+    if(cState.t2sLocked) return;
+    if(cmdT2Sselected.has(kid)){
+      cmdT2Sselected.delete(kid);
+      shape.setAttribute('fill','#1a1a1a');
+      txt.setAttribute('fill', SVG_KEYS.find(k=>k.id===kid)?.text||'#fff');
+    } else {
+      cmdT2Sselected.add(kid);
+      shape.setAttribute('fill','#ffe033');
+      txt.setAttribute('fill','#000');
+    }
+    document.getElementById('cmd-t2s-sel').textContent=cmdT2Sselected.size>0?[...cmdT2Sselected].join(' ＋ '):'（未選択）';
+  },null);
+  cState.t2sLocked=false;
+}
+window.cmdT2SSubmit = function cmdT2SSubmit() {
+  if(cmdT2Sselected.size===0){alert('キーをタップしてください');return;}
+  const item=cState.q[cState.idx];
+  const sel=[...cmdT2Sselected].sort().join(',');
+  const ans1=item.keys.map(cmdKeyToSvgId).sort().join(',');
+  const ans2=item.alt?item.alt.map(cmdKeyToSvgId).sort().join(','):null;
+  const ok=sel===ans1||(ans2&&sel===ans2);
+  if(ok) cState.correct++;
+  cState.t2sLocked=true;
+  const fbt=document.getElementById('cmd-t2s-fbt');
+  const correctLabel=keysLabel(item.keys)+(item.alt?' または '+keysLabel(item.alt):'');
+  fbt.textContent=ok?'正解！':'残念！　正解は「'+correctLabel+'」';
+  fbt.className='fb-text '+(ok?'ok':'ng');
+  document.getElementById('cmd-t2s-fb').classList.add('show');
+  document.getElementById('cmd-t2s-submit').style.display='none';
+}
+window.cmdT2SNext = function cmdT2SNext() {
+  cState.idx++;
+  if(cState.idx>=cState.q.length){showResult(cState.correct,cState.q.length,()=>startCmd('text2svg'));return;}
+  cmdT2SRender();
+}
+
+// --- SVG点灯→テキスト4択 ---
+function cmdS2TRender() {
+  const item=cState.q[cState.idx];
+  document.getElementById('cmd-s2t-score').textContent=(cState.idx+1)+' / '+cState.q.length;
+  buildSVG(document.getElementById('cmd-s2t-svg'),null,item.keys.map(cmdKeyToSvgId));
+  const fb=document.getElementById('cmd-s2t-fb');
+  fb.classList.remove('show');
+  document.getElementById('cmd-s2t-fbt').textContent='';
+  document.getElementById('cmd-s2t-fbt').className='fb-text';
+  const opts=pick4(item,CMDS,x=>x.cmd);
+  const choicesEl=document.getElementById('cmd-s2t-choices');
+  choicesEl.innerHTML='';
+  opts.forEach(opt=>{
+    const btn=document.createElement('button');
+    btn.className='ch'; btn.textContent=opt.cmd;
+    btn.onclick=()=>{
+      if(cState.s2tLocked) return; cState.s2tLocked=true;
+      const ok=opt.cmd===item.cmd; if(ok) cState.correct++;
+      choicesEl.querySelectorAll('.ch').forEach(b=>{
+        if(b.textContent===item.cmd) b.classList.add('ok');
+        else if(b===btn&&!ok) b.classList.add('ng');
+        else b.classList.add('dim');
+      });
+      const fbt=document.getElementById('cmd-s2t-fbt');
+      fbt.textContent=ok?'正解！':'残念！　正解は「'+item.cmd+'」';
+      fbt.className='fb-text '+(ok?'ok':'ng');
+      fb.classList.add('show');
+    };
+    choicesEl.appendChild(btn);
+  });
+  cState.s2tLocked=false;
+}
+window.cmdS2TNext = function cmdS2TNext() {
+  cState.idx++;
+  if(cState.idx>=cState.q.length){showResult(cState.correct,cState.q.length,()=>startCmd('svg2text'));return;}
+  cmdS2TRender();
+}
+
+// --- 高難度：紛らわしいコマンド4択 ---
+function getHardChoices(item) {
+  // 同じキーを含む「紛らわしい」コマンドを優先して選ぶ
+  const itemKeySet = new Set(item.keys);
+  const confusing = CMDS.filter(c=>{
+    if(c.cmd===item.cmd) return false;
+    return c.keys.some(k=>itemKeySet.has(k));
+  });
+  const shuffled = shuffle(confusing);
+  const picked = shuffled.slice(0,3);
+  // 3つ足りなければランダムで補完
+  if(picked.length<3){
+    const rest=shuffle(CMDS.filter(c=>c.cmd!==item.cmd&&!picked.includes(c))).slice(0,3-picked.length);
+    picked.push(...rest);
+  }
+  return shuffle([item,...picked]);
+}
+function cmdHardRender() {
+  const item=cState.q[cState.idx];
+  document.getElementById('cmd-hard-score').textContent=(cState.idx+1)+' / '+cState.q.length;
+  const altLabel=item.alt?'（または '+keysLabel(item.alt)+'）':'';
+  document.getElementById('cmd-hard-q').textContent='「'+keysLabel(item.keys)+'」'+altLabel+'\nは何のコマンド？';
+  const fb=document.getElementById('cmd-hard-fb');
+  fb.classList.remove('show');
+  document.getElementById('cmd-hard-fbt').textContent='';
+  document.getElementById('cmd-hard-fbt').className='fb-text';
+  const opts=getHardChoices(item);
+  const choicesEl=document.getElementById('cmd-hard-choices');
+  choicesEl.innerHTML='';
+  opts.forEach(opt=>{
+    const btn=document.createElement('button');
+    btn.className='ch'; btn.textContent=opt.cmd;
+    btn.onclick=()=>{
+      if(cState.hardLocked) return; cState.hardLocked=true;
+      const ok=opt.cmd===item.cmd; if(ok) cState.correct++;
+      choicesEl.querySelectorAll('.ch').forEach(b=>{
+        if(b.textContent===item.cmd) b.classList.add('ok');
+        else if(b===btn&&!ok) b.classList.add('ng');
+        else b.classList.add('dim');
+      });
+      const fbt=document.getElementById('cmd-hard-fbt');
+      fbt.textContent=ok?'正解！':'残念！　正解は「'+item.cmd+'」';
+      fbt.className='fb-text '+(ok?'ok':'ng');
+      fb.classList.add('show');
+    };
+    choicesEl.appendChild(btn);
+  });
+  cState.hardLocked=false;
+}
+window.cmdHardNext = function cmdHardNext() {
+  cState.idx++;
+  if(cState.idx>=cState.q.length){showResult(cState.correct,cState.q.length,()=>startCmd('hard'));return;}
+  cmdHardRender();
+}
+
+// ========== コマンド辞書 ==========
+function buildDict() {
+  const cats=[...new Set(CMDS.map(c=>c.cat))];
+  const el=document.getElementById('dict-body');
+  el.innerHTML='';
+  cats.forEach(cat=>{
+    const catEl=document.createElement('div');
+    catEl.innerHTML='<div class="dict-cat">'+cat+'</div>';
+    CMDS.filter(c=>c.cat===cat).forEach(c=>{
+      const altStr=c.alt?'<br>または '+keysLabel(c.alt):'';
+      const noteStr=c.note?'<div class="dict-note">※'+c.note+'</div>':'';
+      catEl.innerHTML+='<div class="dict-item"><div class="dict-cmd">'+c.cmd+'</div><div class="dict-keys">'+keysLabel(c.keys)+altStr+'</div>'+noteStr+'</div>';
+    });
+    el.appendChild(catEl);
+  });
+}
+buildDict();
+</script>
+</body>
+</html>
