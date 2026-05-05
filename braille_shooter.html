@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>点字シューター</title>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+    body { background:#000; color:#fff; font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif; font-weight:700; display:flex; flex-direction:column; align-items:center; height:100dvh; overflow:hidden; }
+    .scr { display:none; width:100%; max-width:420px; flex-direction:column; height:100dvh; }
+    .scr.on { display:flex; }
+    #sc-t { align-items:center; justify-content:center; gap:24px; padding:40px 20px; }
+    .tlogo { font-size:34px; text-align:center; letter-spacing:.04em; }
+    .tdesc { font-size:14px; line-height:2; text-align:center; border:1px solid #fff; border-radius:12px; padding:16px 18px; }
+    .hud { display:flex; justify-content:space-between; align-items:center; padding:6px 16px; font-size:17px; flex-shrink:0; }
+    canvas { display:block; width:100%; flex:1; min-height:0; }
+    .chs { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px 16px 16px; flex-shrink:0; }
+    .ch { min-height:64px; border:2px solid #fff; border-radius:12px; background:#000; color:#fff; font-size:26px; font-weight:700; font-family:inherit; cursor:pointer; }
+    .ch:active { background:#1a1a1a; }
+    .ch.ok { border-color:#4ade80; background:#052016; color:#4ade80; }
+    .ch.ng { border-color:#ff3333; background:#3a0000; color:#ff3333; }
+    #sc-o { align-items:center; justify-content:center; gap:22px; padding:40px 20px; }
+    .ovttl { font-size:44px; color:#ff3333; letter-spacing:.05em; }
+    .ovsc  { font-size:22px; }
+    .btn { width:80%; max-width:280px; min-height:64px; border:2px solid #fff; border-radius:14px; background:#000; color:#fff; font-size:20px; font-weight:700; font-family:inherit; cursor:pointer; }
+    .btn:active { background:#1a1a1a; }
+    .btnw { background:#fff; color:#000; }
+    .btnw:active { background:#ddd; color:#000; }
+  </style>
+</head>
+<body>
+
+<!-- タイトル -->
+<div id="sc-t" class="scr on">
+  <div class="tlogo">⠿ 点字シューター ⠿</div>
+  <div class="tdesc">
+    落ちてくる点字を読んで<br>
+    正しい文字をタップして撃ち落とせ！<br><br>
+    ✅ 正解 → ビーム発射・撃墜<br>
+    ❌ 誤タップ / 底に到達 → ❤️ 減<br>
+    ❤️ ライフ 0 でゲームオーバー
+  </div>
+  <button class="btn btnw" onclick="startGame()">ゲームスタート ▶</button>
+</div>
+
+<!-- ゲーム -->
+<div id="sc-g" class="scr">
+  <div class="hud">
+    <div>🎯 <span id="hsc">0</span></div>
+    <div id="hlv">❤️❤️❤️</div>
+    <div id="hlvl">Lv.1</div>
+  </div>
+  <canvas id="gc"></canvas>
+  <div class="chs">
+    <button class="ch" id="c0" onclick="ans(0)"></button>
+    <button class="ch" id="c1" onclick="ans(1)"></button>
+    <button class="ch" id="c2" onclick="ans(2)"></button>
+    <button class="ch" id="c3" onclick="ans(3)"></button>
+  </div>
+</div>
+
+<!-- ゲームオーバー -->
+<div id="sc-o" class="scr">
+  <div class="ovttl">GAME OVER</div>
+  <div class="ovsc">スコア：<span id="osc">0</span> 点</div>
+  <div class="ovsc">撃墜：<span id="oht">0</span> 機</div>
+  <button class="btn btnw" onclick="startGame()">もう一度</button>
+  <button class="btn" onclick="showScr('sc-t')">タイトルへ</button>
+</div>
+
+<script>
+const DATA = {
+  'あ':[1],'い':[1,2],'う':[1,4],'え':[1,2,4],'お':[2,4],
+  'か':[1,6],'き':[1,2,6],'く':[1,4,6],'け':[1,2,4,6],'こ':[2,4,6],
+  'さ':[1,5,6],'し':[1,2,5,6],'す':[1,4,5,6],'な':[1,3],'に':[1,2,3]
+};
+const KEYS = Object.keys(DATA);
+
+let cv, cx, cw, ch;
+let score, lives, hits, level, killed;
+let enemy, bullets, ptcls, stars;
+let choices, corr, answered;
+let running, raf, msg;
+
+// ── Screen ──
+function showScr(id) {
+  if (raf) { cancelAnimationFrame(raf); raf = null; }
+  running = false;
+  document.querySelectorAll('.scr').forEach(s => { s.classList.remove('on'); s.style.display = 'none'; });
+  const el = document.getElementById(id);
+  el.classList.add('on'); el.style.display = 'flex';
+}
+
+// ── Canvas init ──
+function initCv() {
+  cv = document.getElementById('gc');
+  const r = cv.getBoundingClientRect();
+  cw = r.width; ch = r.height;
+  cv.width  = Math.round(cw * devicePixelRatio);
+  cv.height = Math.round(ch * devicePixelRatio);
+  cx = cv.getContext('2d');
+  cx.scale(devicePixelRatio, devicePixelRatio);
+  stars = Array.from({length:35}, () => ({
+    x: Math.random()*cw, y: Math.random()*ch,
+    r: Math.random()*1.2+.3, a: Math.random()*.3+.1
+  }));
+}
+
+// ── Spawn enemy ──
+function spawn() {
+  if (!running || lives <= 0) return;
+  const k = KEYS[Math.floor(Math.random() * KEYS.length)];
+  const w = 80, h = 90;
+  enemy = { k, d: DATA[k], x: w/2+10 + Math.random()*(cw-w-20), y: -h, vy: 1.0+(level-1)*.25, w, h };
+  answered = false;
+  const wrg = shuf(KEYS.filter(c => c !== k)).slice(0, 3);
+  const all = shuf([k, ...wrg]);
+  choices = all; corr = all.indexOf(k);
+  all.forEach((c, i) => { const b = document.getElementById('c'+i); b.textContent = c; b.className = 'ch'; });
+}
+
+// ── Answer ──
+window.ans = function(i) {
+  if (!running || answered || !enemy) return;
+  if (i === corr) {
+    answered = true;
+    document.getElementById('c'+i).className = 'ch ok';
+    bullets.push({ x: enemy.x, y: ch-30, vy: -14 });
+  } else {
+    document.getElementById('c'+i).className = 'ch ng';
+    loseLife();
+    setTimeout(() => { const b = document.getElementById('c'+i); if (b && b.className === 'ch ng') b.className = 'ch'; }, 400);
+  }
+};
+
+function loseLife() {
+  lives = Math.max(0, lives-1);
+  hud();
+  if (lives <= 0) setTimeout(gameOver, 600);
+}
+
+function hud() {
+  document.getElementById('hsc').textContent  = score;
+  document.getElementById('hlv').textContent  = '❤️'.repeat(lives) + '🖤'.repeat(3-lives);
+  document.getElementById('hlvl').textContent = 'Lv.' + level;
+}
+
+// ── Explosion ──
+function boom(x, y) {
+  const cs = ['#ffe033','#fff','#4ade80'];
+  for (let i = 0; i < 16; i++) {
+    const a = Math.random()*Math.PI*2, s = Math.random()*5+1.5;
+    ptcls.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, r: Math.random()*4+2, l:35, ml:35, c: cs[i%3] });
+  }
+}
+
+// ── Main loop ──
+function loop() {
+  if (!running) return;
+  cx.clearRect(0, 0, cw, ch);
+
+  // Stars
+  stars.forEach(s => {
+    cx.globalAlpha = s.a; cx.fillStyle = '#fff';
+    cx.beginPath(); cx.arc(s.x, s.y, s.r, 0, Math.PI*2); cx.fill();
+  });
+  cx.globalAlpha = 1;
+
+  // Danger zone (subtle red glow at bottom)
+  cx.fillStyle = '#ff3333'; cx.globalAlpha = .05;
+  cx.fillRect(0, ch-36, cw, 36);
+  cx.globalAlpha = 1;
+
+  // Particles
+  ptcls = ptcls.filter(p => p.l > 0);
+  ptcls.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += .12; p.l--;
+    cx.globalAlpha = p.l / p.ml; cx.fillStyle = p.c;
+    cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, Math.PI*2); cx.fill();
+  });
+  cx.globalAlpha = 1;
+
+  // Bullets
+  bullets = bullets.filter(b => b.y > -10);
+  bullets.forEach(b => {
+    b.y += b.vy;
+    cx.fillStyle = '#4ade80';
+    cx.fillRect(b.x-3, b.y-18, 6, 18);
+  });
+
+  // Enemy update
+  if (enemy) {
+    enemy.y += enemy.vy;
+
+    // Bullet collision
+    for (let i = bullets.length-1; i >= 0; i--) {
+      const b = bullets[i];
+      if (b.x > enemy.x-enemy.w/2 && b.x < enemy.x+enemy.w/2 &&
+          b.y > enemy.y && b.y < enemy.y+enemy.h) {
+        boom(enemy.x, enemy.y + enemy.h/2);
+        bullets.splice(i, 1);
+        score += 10 * level; hits++; killed++;
+        if (killed % 5 === 0) { level++; msg = { txt: '⬆ Lv.'+level+'!', rem: 80 }; }
+        hud(); enemy = null;
+        spawn();
+        break;
+      }
+    }
+
+    // Reached bottom
+    if (enemy && enemy.y > ch) {
+      boom(enemy.x, ch-20);
+      loseLife(); enemy = null;
+      spawn();
+    }
+  }
+
+  // Player ship (auto-tracks enemy)
+  const plx = enemy ? enemy.x : cw/2, ply = ch-28;
+  cx.fillStyle = '#fff';
+  cx.beginPath(); cx.moveTo(plx, ply-22); cx.lineTo(plx-16, ply); cx.lineTo(plx+16, ply); cx.closePath(); cx.fill();
+  cx.fillStyle = '#4ade80';
+  cx.beginPath(); cx.arc(plx, ply+5, 5, 0, Math.PI*2); cx.fill();
+
+  // Enemy draw
+  if (enemy) {
+    const e = enemy, on = new Set(e.d);
+    cx.save();
+    cx.fillStyle = '#0d0d0d'; cx.strokeStyle = '#fff'; cx.lineWidth = 2;
+    cx.beginPath();
+    if (cx.roundRect) cx.roundRect(e.x-e.w/2, e.y, e.w, e.h, 10);
+    else cx.rect(e.x-e.w/2, e.y, e.w, e.h);
+    cx.fill(); cx.stroke();
+
+    // Braille dots: 1=左上 2=左中 3=左下 4=右上 5=右中 6=右下
+    const lx = e.x-15, rx = e.x+15;
+    const ty = e.y+e.h*.14, my = e.y+e.h*.50, by = e.y+e.h*.86;
+    const P = { 1:[lx,ty], 2:[lx,my], 3:[lx,by], 4:[rx,ty], 5:[rx,my], 6:[rx,by] };
+    [1,2,3,4,5,6].forEach(n => {
+      const [dx, dy] = P[n];
+      cx.beginPath(); cx.arc(dx, dy, 7, 0, Math.PI*2);
+      if (on.has(n)) { cx.fillStyle = '#ffe033'; cx.fill(); }
+      else           { cx.strokeStyle = '#fff'; cx.lineWidth = 1; cx.stroke(); }
+    });
+    cx.restore();
+  }
+
+  // Level-up message
+  if (msg) {
+    msg.rem--;
+    cx.save();
+    cx.globalAlpha = Math.min(1, msg.rem / 20);
+    cx.fillStyle = '#ffe033';
+    cx.font = 'bold 30px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText(msg.txt, cw/2, ch/2-20);
+    cx.restore();
+    if (msg.rem <= 0) msg = null;
+  }
+
+  raf = requestAnimationFrame(loop);
+}
+
+// ── Start / Over ──
+window.startGame = function() {
+  score=0; lives=3; hits=0; level=1; killed=0;
+  bullets=[]; ptcls=[]; enemy=null; answered=false; msg=null;
+  showScr('sc-g');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    initCv(); hud(); running=true; spawn(); loop();
+  }));
+};
+
+function gameOver() {
+  running = false;
+  if (raf) { cancelAnimationFrame(raf); raf = null; }
+  document.getElementById('osc').textContent = score;
+  document.getElementById('oht').textContent = hits;
+  showScr('sc-o');
+}
+
+function shuf(a) {
+  const r = [...a];
+  for (let i = r.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [r[i],r[j]]=[r[j],r[i]]; }
+  return r;
+}
+</script>
+</body>
+</html>
