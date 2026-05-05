@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>点字神経衰弱</title>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+    body { background:#000; color:#fff; font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif; font-weight:700; display:flex; flex-direction:column; align-items:center; }
+    .scr { display:none; width:100%; max-width:480px; min-height:100vh; flex-direction:column; }
+    .scr.on { display:flex; }
+
+    /* ── TITLE ── */
+    #s-t { align-items:center; justify-content:center; gap:24px; padding:40px 20px; }
+    .tlogo { font-size:26px; text-align:center; line-height:1.6; }
+    .tdesc { font-size:14px; line-height:2.1; border:1px solid #fff; border-radius:12px; padding:16px 18px; text-align:center; width:100%; }
+    .trange { font-size:12px; text-align:center; border:1px solid #fff; border-radius:10px; padding:10px 16px; width:100%; line-height:1.9; }
+
+    /* ── GAME ── */
+    #s-g { overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .hud {
+      position:sticky; top:0; z-index:10; background:#000;
+      display:flex; justify-content:space-between; align-items:center;
+      padding:10px 16px 8px; font-size:16px;
+      border-bottom:1px solid #fff;
+    }
+
+    /* Grid: 5列 × 6行 = 30枚 */
+    .grid { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; padding:8px 12px 16px; }
+
+    /* ── CARD ── */
+    .card { aspect-ratio:3/4; position:relative; cursor:pointer; }
+    .card-b, .card-f {
+      position:absolute; inset:0;
+      border:2px solid #fff; border-radius:7px;
+      display:flex; align-items:center; justify-content:center;
+      transition:opacity .15s;
+    }
+    .card-b { background:#000; flex-direction:column; gap:2px; }
+    .card-b-sym { font-size:18px; opacity:.18; }
+    .card-f { background:#0d0d0d; border-color:#ffe033; opacity:0; }
+
+    .card.open  .card-b { opacity:0; pointer-events:none; }
+    .card.open  .card-f { opacity:1; }
+    .card.done  .card-b { opacity:0; pointer-events:none; }
+    .card.done  .card-f { opacity:1; border-color:#4ade80; }
+
+    .card-char { font-size:min(8vw, 30px); color:#fff; }
+    .card-f svg { width:62%; height:auto; }
+
+    /* ── CLEAR ── */
+    #s-c { align-items:center; justify-content:center; gap:22px; padding:40px 20px; }
+    .clr-ttl  { font-size:42px; text-align:center; }
+    .clr-sub  { font-size:18px; color:#ffe033; }
+    .clr-stat {
+      font-size:18px; line-height:2.4; text-align:center;
+      border:1px solid #fff; border-radius:12px; padding:14px 28px; width:100%;
+    }
+
+    /* Buttons */
+    .btn { display:block; width:100%; max-width:320px; min-height:64px; padding:12px 20px; border:2px solid #fff; border-radius:14px; background:#000; color:#fff; font-size:19px; font-weight:700; font-family:inherit; cursor:pointer; text-align:center; }
+    .btn:active { background:#1a1a1a; }
+    .btnw { background:#fff; color:#000; }
+    .btnw:active { background:#ddd; color:#000; }
+    .btng { border-color:#4ade80; color:#4ade80; }
+    .btng:active { background:#052016; }
+  </style>
+</head>
+<body>
+
+<!-- ① タイトル -->
+<div id="s-t" class="scr on">
+  <div class="tlogo">🃏 点字神経衰弱 🃏</div>
+  <div class="tdesc">
+    文字カードと点字カードの<br>
+    ペアをタップで探し出そう！<br><br>
+    ✅ 2枚一致 → ペア成立・緑枠で残る<br>
+    ❌ 不一致 → すぐに裏返る<br>
+    全15ペアをそろえてクリア！
+  </div>
+  <div class="trange">
+    出題範囲：あ行・か行・な行<br>
+    点字の凸点 = 🟡　凹点 = 白枠
+  </div>
+  <button class="btn btnw" onclick="startGame()">ゲームスタート ▶</button>
+</div>
+
+<!-- ② ゲーム -->
+<div id="s-g" class="scr">
+  <div class="hud">
+    <div>⏱ <span id="h-t">00:00</span></div>
+    <div id="h-p">0 / 15</div>
+    <div>❌ <span id="h-m">0</span></div>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- ③ クリア -->
+<div id="s-c" class="scr">
+  <div class="clr-ttl">🎉 クリア！！</div>
+  <div class="clr-sub">全15ペア達成！</div>
+  <div class="clr-stat">
+    ⏱ タイム：<span id="c-t">--</span><br>
+    ❌ ミス：<span id="c-m">0</span> 回
+  </div>
+  <button class="btn btnw" onclick="startGame()">もう一度</button>
+  <button class="btn btng" onclick="showScr('s-t')">タイトルへ</button>
+</div>
+
+<script>
+// ── データ ──
+const DATA = {
+  'あ':[1],    'い':[1,2],    'う':[1,4],    'え':[1,2,4],    'お':[2,4],
+  'か':[1,6],  'き':[1,2,6],  'く':[1,4,6],  'け':[1,2,4,6],  'こ':[2,4,6],
+  'な':[1,3],  'に':[1,2,3],  'ぬ':[1,3,4],  'ね':[1,2,3,4],  'の':[2,3,4]
+};
+const TOTAL = Object.keys(DATA).length; // 15
+
+// ── 状態 ──
+let cards=[], sel=[], locked=false, misses=0, pairsDone=0;
+let startTime=null, timerID=null;
+
+// ── 画面切替 ──
+window.showScr = function(id) {
+  document.querySelectorAll('.scr').forEach(s=>{ s.classList.remove('on'); s.style.display='none'; });
+  const el=document.getElementById(id);
+  el.classList.add('on'); el.style.display='flex';
+  if(id==='s-g') el.scrollTop=0;
+};
+
+// ── 点字 SVG ──
+function makeSVG(dots) {
+  const on = new Set(dots);
+  // viewBox 0 0 36 56 : 左列 x=10, 右列 x=26, 行 y=10/28/46
+  const P = [[1,10,10],[2,10,28],[3,10,46],[4,26,10],[5,26,28],[6,26,46]];
+  const c = P.map(([n,x,y]) => on.has(n)
+    ? `<circle cx="${x}" cy="${y}" r="7" fill="#ffe033"/>`
+    : `<circle cx="${x}" cy="${y}" r="7" fill="none" stroke="#fff" stroke-width="1.5"/>`
+  ).join('');
+  return `<svg viewBox="0 0 36 56" xmlns="http://www.w3.org/2000/svg">${c}</svg>`;
+}
+
+// ── デッキ生成・シャッフル ──
+function buildDeck() {
+  const deck = [];
+  Object.keys(DATA).forEach((k, i) => {
+    deck.push({ id:i*2,   type:'char',    char:k, open:false, matched:false });
+    deck.push({ id:i*2+1, type:'braille', char:k, open:false, matched:false });
+  });
+  for(let i=deck.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [deck[i],deck[j]]=[deck[j],deck[i]];
+  }
+  return deck;
+}
+
+// ── グリッド描画 ──
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  cards.forEach((card, idx) => {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.dataset.i = idx;
+
+    // 裏面
+    const back = document.createElement('div');
+    back.className = 'card-b';
+    back.innerHTML = '<span class="card-b-sym">⠿</span>';
+
+    // 表面
+    const front = document.createElement('div');
+    front.className = 'card-f';
+    front.innerHTML = card.type==='char'
+      ? `<span class="card-char">${card.char}</span>`
+      : makeSVG(DATA[card.char]);
+
+    el.appendChild(back);
+    el.appendChild(front);
+    el.addEventListener('click', () => onTap(idx));
+    grid.appendChild(el);
+  });
+}
+
+// ── ゲーム開始 ──
+window.startGame = function() {
+  if(timerID){ clearInterval(timerID); timerID=null; }
+  cards=buildDeck(); sel=[]; locked=false; misses=0; pairsDone=0; startTime=null;
+  document.getElementById('h-t').textContent='00:00';
+  document.getElementById('h-m').textContent='0';
+  document.getElementById('h-p').textContent='0 / '+TOTAL;
+  showScr('s-g');
+  renderGrid();
+};
+
+// ── タイマー ──
+function tick() {
+  if(!startTime) return;
+  const e = Math.floor((Date.now()-startTime)/1000);
+  document.getElementById('h-t').textContent =
+    String(Math.floor(e/60)).padStart(2,'0') + ':' + String(e%60).padStart(2,'0');
+}
+
+// ── カードタップ ──
+function getEl(idx){ return document.querySelector(`[data-i="${idx}"]`); }
+
+function onTap(idx) {
+  if(locked) return;
+  const card = cards[idx];
+  if(card.matched || card.open) return;
+
+  if(!startTime){
+    startTime = Date.now();
+    timerID = setInterval(tick, 500);
+  }
+
+  card.open = true;
+  getEl(idx).classList.add('open');
+  sel.push(idx);
+
+  if(sel.length < 2) return;
+
+  locked = true;
+  const [a, b] = sel;
+  const ca=cards[a], cb=cards[b];
+
+  if(ca.char===cb.char && ca.type!==cb.type) {
+    // ✅ ペア成立
+    setTimeout(()=>{
+      [a,b].forEach(i=>{
+        cards[i].matched=true;
+        getEl(i).classList.remove('open');
+        getEl(i).classList.add('done');
+      });
+      pairsDone++;
+      document.getElementById('h-p').textContent=pairsDone+' / '+TOTAL;
+      sel=[]; locked=false;
+      if(pairsDone===TOTAL) setTimeout(showClear, 500);
+    }, 300);
+  } else {
+    // ❌ 不一致
+    misses++;
+    document.getElementById('h-m').textContent=misses;
+    setTimeout(()=>{
+      [a,b].forEach(i=>{
+        cards[i].open=false;
+        getEl(i).classList.remove('open');
+      });
+      sel=[]; locked=false;
+    }, 750);
+  }
+}
+
+// ── クリア ──
+function showClear() {
+  clearInterval(timerID); timerID=null;
+  const e = Math.floor((Date.now()-startTime)/1000);
+  document.getElementById('c-t').textContent =
+    String(Math.floor(e/60)).padStart(2,'0') + ':' + String(e%60).padStart(2,'0');
+  document.getElementById('c-m').textContent = misses;
+  showScr('s-c');
+}
+</script>
+</body>
+</html>
