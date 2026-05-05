@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>ブレイルセンス点字練習</title>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+    body { background:#000; color:#fff; font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic',sans-serif; font-weight:700; display:flex; flex-direction:column; align-items:center; }
+    .screen { display:none; width:100%; max-width:500px; min-height:100vh; flex-direction:column; padding:14px 20px 36px; }
+    .screen.active { display:flex; }
+
+    /* HOME */
+    .home-body { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .app-name { font-size:24px; text-align:center; margin-bottom:8px; letter-spacing:.05em; }
+    .app-sub  { font-size:13px; color:#fff; text-align:center; margin-bottom:6px; }
+    .app-device { font-size:12px; color:#fff; text-align:center; margin-bottom:32px; border:1px solid #fff; border-radius:8px; padding:4px 12px; display:inline-block; }
+    .sec-label { font-size:13px; color:#fff; text-align:center; letter-spacing:.1em; margin-bottom:12px; }
+
+    /* BUTTONS */
+    .btn { display:block; width:100%; min-height:64px; padding:12px 20px; border:2px solid #fff; border-radius:14px; background:transparent; color:#fff; font-size:19px; font-weight:700; font-family:inherit; cursor:pointer; text-align:center; margin-bottom:12px; line-height:1.4; }
+    .btn:active    { background:#1c1c1c; }
+    .btn-white     { background:#fff; color:#000; }
+    .btn-white:active { background:#1c1c1c; color:#fff; }
+    .btn-ok        { border-color:#4ade80; color:#4ade80; }
+    .btn-ok:active { background:#0a2316; }
+    .btn-ng        { border-color:#ff3333; color:#ff3333; }
+    .btn-ng:active { background:#3a0000; }
+    .btn-dim       { border-color:#fff; color:#fff; }
+    .btn-dim:active{ background:#222; }
+    .btn-gold      { border-color:#ffe033; color:#ffe033; }
+    .btn-gold:active{ background:#2a1a00; }
+    .btn-gray-section { border-color:#fff; color:#fff; opacity:.6; }
+
+    /* TOGGLE */
+    .toggle { display:flex; width:100%; border:2px solid #fff; border-radius:14px; overflow:hidden; margin-bottom:24px; }
+    .tog { flex:1; min-height:54px; background:transparent; color:#fff; font-size:15px; font-weight:700; font-family:inherit; border:none; cursor:pointer; padding:12px 8px; }
+    .tog.on { background:#fff; color:#000; }
+    .tog:active { opacity:.75; }
+
+    /* BACK */
+    .back { background:transparent; border:none; color:#fff; font-size:18px; font-weight:700; font-family:inherit; cursor:pointer; padding:4px 0 14px; align-self:flex-start; }
+    .back:active { opacity:.6; }
+
+    /* SCORE */
+    .score { width:100%; background:#111; border:1.5px solid #fff; border-radius:10px; padding:9px 16px; font-size:17px; color:#fff; text-align:center; margin-bottom:16px; }
+
+    /* FONT SIZE BAR */
+    .fsize-bar { display:flex; width:100%; border:1.5px solid #fff; border-radius:10px; overflow:hidden; margin-bottom:14px; }
+    .fsz { flex:1; min-height:36px; background:transparent; color:#fff; font-size:14px; font-weight:700; font-family:inherit; border:none; cursor:pointer; padding:6px 2px; }
+    .fsz.on { background:#fff; color:#000; }
+    .fsz:active { opacity:.75; }
+
+    /* CARD */
+    .card-outer { width:100%; cursor:pointer; user-select:none; -webkit-user-select:none; margin-bottom:20px; }
+    .card-mid   { width:100%; height:270px; position:relative; }
+    .card-face  { position:absolute; inset:0; border:2px solid #fff; border-radius:20px; background:#0d0d0d; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity .25s ease; }
+    .card-back-face { border-color:#fff; opacity:0; pointer-events:none; }
+    .card-mid.flip .card-face:not(.card-back-face) { opacity:0; pointer-events:none; }
+    .card-mid.flip .card-back-face { opacity:1; pointer-events:auto; }
+    .card-letter { font-size:96px; line-height:1; }
+    .card-hint   { font-size:13px; color:#fff; margin-top:14px; }
+    .card-ans    { font-size:64px; line-height:1; margin-bottom:8px; }
+    .card-acts   { display:flex; gap:12px; width:100%; }
+    .card-acts .btn { flex:1; font-size:17px; margin-bottom:0; }
+
+    /* フォントサイズ段階 */
+    .fs-s .card-letter,.fs-s .q-letter { font-size:96px; }
+    .fs-s .card-ans { font-size:64px; }
+    .fs-s .ch { font-size:22px; min-height:70px; }
+    .fs-m .card-letter,.fs-m .q-letter { font-size:116px; }
+    .fs-m .card-ans { font-size:78px; }
+    .fs-m .ch { font-size:28px; min-height:80px; }
+    .fs-l .card-letter,.fs-l .q-letter { font-size:134px; }
+    .fs-l .card-ans { font-size:90px; }
+    .fs-l .ch { font-size:34px; min-height:90px; }
+
+    /* 点字サイズ：フォントサイズ連動（body全体に適用） */
+    body.fs-s .dot { width:18px; height:18px; }
+    body.fs-s .br-sm .dot { width:13px; height:13px; }
+    body.fs-m .dot { width:22px; height:22px; }
+    body.fs-m .br-sm .dot { width:16px; height:16px; }
+    body.fs-l .dot { width:26px; height:26px; }
+    body.fs-l .br-sm .dot { width:19px; height:19px; }
+    body.fs-s .card-letter,body.fs-s .q-letter { font-size:96px; }
+    body.fs-s .card-ans { font-size:64px; }
+    body.fs-s .ch { font-size:22px; min-height:70px; }
+    body.fs-m .card-letter,body.fs-m .q-letter { font-size:116px; }
+    body.fs-m .card-ans { font-size:78px; }
+    body.fs-m .ch { font-size:28px; min-height:80px; }
+    body.fs-l .card-letter,body.fs-l .q-letter { font-size:134px; }
+    body.fs-l .card-ans { font-size:90px; }
+    body.fs-l .ch { font-size:34px; min-height:90px; }
+    body.fs-m .challenge-intro { font-size:21px; }
+    body.fs-l .challenge-intro { font-size:25px; }
+    body.fs-m .btn { font-size:22px; }
+    body.fs-l .btn { font-size:26px; }
+
+    /* QUIZ */
+    .q-box { width:100%; height:150px; background:#0d0d0d; border:2px solid #fff; border-radius:20px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+    .q-letter { font-size:96px; line-height:1; }
+
+    /* フィードバック＋次へ */
+    .fb-row { display:flex; gap:9px; width:100%; margin-bottom:12px; min-height:52px; visibility:hidden; }
+    .fb-row.show { visibility:visible; }
+    .fb-text { flex:1; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:18px; border:2px solid transparent; padding:8px; text-align:center; }
+    .fb-text.ok { background:#052016; border-color:#4ade80; color:#4ade80; }
+    .fb-text.ng { background:#3a0000; border-color:#ff3333; color:#fff; }
+    .fb-next { min-width:90px; min-height:52px; border:2px solid #fff; border-radius:12px; background:transparent; color:#fff; font-size:16px; font-weight:700; font-family:inherit; cursor:pointer; }
+    .fb-next:active { background:#1c1c1c; }
+
+    /* 4択：2×2グリッド */
+    .choices { display:grid; grid-template-columns:1fr 1fr; gap:9px; width:100%; }
+    .ch { width:100%; min-height:70px; background:#0d0d0d; border:2px solid #fff; border-radius:14px; color:#fff; font-size:22px; font-weight:700; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; padding:8px; text-align:center; }
+    .ch:active { background:#1a1a1a; }
+    .ch.ok  { border-color:#4ade80; background:#052016; }
+    .ch.ng  { border-color:#ff3333; background:#3a0000; color:#fff; }
+    .ch.dim { border-color:#fff; color:#fff; opacity:.35; }
+
+    /* RESULT */
+    .res-body { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .res-head { font-size:18px; color:#fff; margin-bottom:12px; text-align:center; }
+    .res-pct  { font-size:84px; line-height:1; margin-bottom:8px; }
+    .res-frac { font-size:18px; color:#fff; margin-bottom:48px; }
+
+    /* PERFECT */
+    .perfect-body { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; overflow:hidden; }
+    .perfect-title { font-size:52px; text-align:center; margin-bottom:8px; animation:pop .4s ease; }
+    .perfect-sub   { font-size:20px; color:#ffe033; margin-bottom:6px; text-align:center; }
+    .perfect-frac  { font-size:16px; color:#fff; margin-bottom:32px; }
+    .confetti-wrap { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+    .confetti { position:absolute; width:10px; height:10px; border-radius:2px; animation:fall linear forwards; }
+    @keyframes fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }
+    @keyframes pop  { 0%{transform:scale(.5);opacity:0} 70%{transform:scale(1.2)} 100%{transform:scale(1);opacity:1} }
+    .emoji-rain { font-size:40px; animation:pop .6s ease both; }
+
+    /* 点字グリッド */
+    .br-v { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(3,1fr); gap:6px; }
+    .br-h { display:flex; flex-direction:row; align-items:center; gap:4px; }
+    .br-h-sep { width:8px; }
+    .dot { width:18px; height:18px; border-radius:50%; background:#fff; }
+    .dot.off { background:#000; border:1px solid #fff; }
+    .br-sm .dot { width:13px; height:13px; }
+    .br-sm .br-h-sep { width:5px; }
+
+    /* 点字切替トグル */
+    .btog-wrap  { display:flex; justify-content:center; margin-bottom:8px; }
+    .btog-group { display:flex; border:2px solid #fff; border-radius:8px; overflow:hidden; }
+    .btog { padding:6px 14px; background:#000; color:#fff; font-size:12px; font-weight:700; font-family:inherit; border:none; cursor:pointer; white-space:nowrap; }
+    .btog.on { background:#fff; color:#000; }
+
+    /* チャレンジ選択画面 */
+    .challenge-intro { font-size:17px; color:#fff; text-align:center; margin-bottom:20px; line-height:1.6; }
+
+    /* 区切り線 */
+    .divider { width:100%; border:none; border-top:1px solid #fff; margin:8px 0 16px; }
+
+    /* 下部フォントバー共通 */
+    .fsize-bar-global { margin-top:auto; padding-top:12px; margin-bottom:0; }
+  </style>
+</head>
+<body class="fs-s">
+
+<!-- ① ホーム -->
+<div id="s-home" class="screen active">
+  <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:0">
+    <button class="back" onclick="location.href='index.html'" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="home-body">
+    <div class="app-name">点字練習</div>
+    <div style="width:100%">
+      <button class="btn" onclick="pickSet('alpha')">🔤 アルファベット練習（A〜Z）</button>
+      <button class="btn" onclick="pickSet('jp')">🇯🇵 日本語練習（あ〜ん＋記号）</button>
+    </div>
+  </div>
+  <div class="fsize-bar fsize-bar-global">
+    <button class="fsz on" onclick="setFS(this,'s')">標準</button>
+    <button class="fsz"    onclick="setFS(this,'m')">大</button>
+    <button class="fsz"    onclick="setFS(this,'l')">特大</button>
+  </div>
+</div>
+
+<!-- ② モード選択 -->
+<div id="s-mode" class="screen">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="location.href='index.html'" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%">
+    <div id="mode-title" style="font-size:21px;margin-bottom:28px;text-align:center"></div>
+    <div style="width:100%">
+      <div class="sec-label">出題順</div>
+      <div class="toggle">
+        <button id="t-rand" class="tog on" onclick="setOrder('random')">ランダム順</button>
+        <button id="t-ord"  class="tog"    onclick="setOrder('ordered')">あいうえお順</button>
+      </div>
+      <div class="sec-label">モード</div>
+      <button class="btn btn-white" onclick="startMode('card',false,null)">カードモード</button>
+      <button class="btn"           onclick="startMode('quiz',false,null)">4択モード</button>
+      <!-- アルファベット用チャレンジ -->
+      <button id="btn-hard-card" class="btn btn-gold" onclick="go('s-challenge-card')">チャレンジ‼️：カード 🃏👀</button>
+      <button id="btn-hard-quiz" class="btn btn-gold" onclick="go('s-challenge-quiz')">チャレンジ‼️：４択 🔢🎯</button>
+      <!-- 日本語用チャレンジ（4択のみ） -->
+      <button id="btn-jp-challenge" class="btn btn-gold" style="display:none" onclick="startMode('quiz',true,'h')">入力表記（指点字表記）🔥👹🔥</button>
+    </div>
+  </div>
+  <div class="fsize-bar fsize-bar-global">
+    <button class="fsz on" onclick="setFS(this,'s')">標準</button>
+    <button class="fsz"    onclick="setFS(this,'m')">大</button>
+    <button class="fsz"    onclick="setFS(this,'l')">特大</button>
+  </div>
+</div>
+
+<!-- ②a アルファベット チャレンジ：カード 表記選択 -->
+<div id="s-challenge-card" class="screen">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="location.href='index.html'" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%">
+    <div style="font-size:22px;margin-bottom:16px;text-align:center">チャレンジ‼️：カード 🃏👀</div>
+    <div class="challenge-intro">点字を見てアルファベットを答えます<br>表示方法を選んでください</div>
+    <div style="width:100%">
+      <button class="btn btn-gold" onclick="startMode('card',true,'v')">点字表記🔥<br><span style="font-size:15px;font-weight:400">縦（１４／２５／３６）</span></button>
+      <button class="btn btn-gold" onclick="startMode('card',true,'h')">入力表記（指点字表記）🔥🔥🔥<br><span style="font-size:15px;font-weight:400">横（３２１｜４５６）</span></button>
+    </div>
+  </div>
+  <div class="fsize-bar fsize-bar-global">
+    <button class="fsz on" onclick="setFS(this,'s')">標準</button>
+    <button class="fsz"    onclick="setFS(this,'m')">大</button>
+    <button class="fsz"    onclick="setFS(this,'l')">特大</button>
+  </div>
+</div>
+
+<!-- ②b アルファベット チャレンジ：４択 表記選択 -->
+<div id="s-challenge-quiz" class="screen">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="location.href='index.html'" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%">
+    <div style="font-size:22px;margin-bottom:16px;text-align:center">チャレンジ‼️：４択 🔢🎯</div>
+    <div class="challenge-intro">点字を見てアルファベットを答えます<br>表示方法を選んでください</div>
+    <div style="width:100%">
+      <button class="btn btn-gold" onclick="startMode('quiz',true,'v')">点字表記🔥<br><span style="font-size:15px;font-weight:400">縦（１４／２５／３６）</span></button>
+      <button class="btn btn-gold" onclick="startMode('quiz',true,'h')">入力表記（指点字表記）🔥🔥🔥<br><span style="font-size:15px;font-weight:400">横（３２１｜４５６）</span></button>
+    </div>
+  </div>
+  <div class="fsize-bar fsize-bar-global">
+    <button class="fsz on" onclick="setFS(this,'s')">標準</button>
+    <button class="fsz"    onclick="setFS(this,'m')">大</button>
+    <button class="fsz"    onclick="setFS(this,'l')">特大</button>
+  </div>
+</div>
+
+<!-- ③ カードモード -->
+<div id="s-card" class="screen">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="location.href='index.html'" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div id="card-score" class="score"></div>
+  <div class="card-outer" id="card-outer" onclick="flipCard()">
+    <div class="card-mid" id="card-mid">
+      <div class="card-face">
+        <div class="card-letter" id="cf-key"></div>
+        <div class="card-hint">タップして答えを見る</div>
+      </div>
+      <div class="card-face card-back-face" onclick="unflipCard(event)">
+        <div class="card-ans" id="cb-val"></div>
+        <div class="btog-wrap" id="cb-btog-wrap">
+          <div class="btog-group">
+            <button class="btog on" id="btog-v" onclick="event.stopPropagation();setBM('v')">縦　１４／２５／３６</button>
+            <button class="btog"    id="btog-h" onclick="event.stopPropagation();setBM('h')">横　３２１｜４５６</button>
+          </div>
+        </div>
+        <div id="cb-braille"></div>
+      </div>
+    </div>
+  </div>
+  <div id="card-acts" class="card-acts" style="display:none">
+    <button class="btn btn-ng" onclick="rate(false)">むずかしい 👎</button>
+    <button class="btn btn-ok" onclick="rate(true)">わかった 👍</button>
+  </div>
+  <div class="fsize-bar fsize-bar-global">
+    <button class="fsz on" onclick="setFS(this,'s')">標準</button>
+    <button class="fsz"    onclick="setFS(this,'m')">大</button>
+    <button class="fsz"    onclick="setFS(this,'l')">特大</button>
+  </div>
+</div>
+
+<!-- ④ 4択モード -->
+<div id="s-quiz" class="screen">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="location.href='index.html'" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div id="quiz-score" class="score"></div>
+  <div class="q-box"><div class="q-letter" id="q-key"></div></div>
+  <div class="fb-row" id="fb-row">
+    <div class="fb-text" id="fb-text"></div>
+    <button class="fb-next" onclick="nextQuiz()">次へ →</button>
+  </div>
+  <div class="choices" id="q-choices"></div>
+  <!-- 修正10：アルファベット4択のみ縦横バー表示（JS制御） -->
+  <div id="quiz-bm-bar" class="btog-wrap" style="display:none;margin-bottom:8px;">
+    <div class="btog-group">
+      <button class="btog on" id="quiz-btog-v" onclick="setQuizBM('v')">縦　１４／２５／３６</button>
+      <button class="btog"    id="quiz-btog-h" onclick="setQuizBM('h')">横　３２１｜４５６</button>
+    </div>
+  </div>
+  <div class="fsize-bar fsize-bar-global">
+    <button class="fsz on" onclick="setFS(this,'s')">標準</button>
+    <button class="fsz"    onclick="setFS(this,'m')">大</button>
+    <button class="fsz"    onclick="setFS(this,'l')">特大</button>
+  </div>
+</div>
+
+<!-- ⑤ 結果（通常） -->
+<div id="s-result" class="screen">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="location.href='index.html'" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="res-body">
+    <div class="res-head" id="r-head"></div>
+    <div class="res-pct"  id="r-pct"></div>
+    <div class="res-frac" id="r-frac"></div>
+    <div style="width:100%">
+      <button class="btn btn-white" onclick="restart()">もう一度</button>
+      <button class="btn"           onclick="go('mode')">モード選択に戻る</button>
+      <button class="btn btn-dim"   onclick="go('home')">トップに戻る</button>
+    </div>
+  </div>
+  <div class="fsize-bar fsize-bar-global">
+    <button class="fsz on" onclick="setFS(this,'s')">標準</button>
+    <button class="fsz"    onclick="setFS(this,'m')">大</button>
+    <button class="fsz"    onclick="setFS(this,'l')">特大</button>
+  </div>
+</div>
+
+<!-- ⑥ 結果（100%パーフェクト） -->
+<div id="s-perfect" class="screen">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0">
+    <button class="back" onclick="goBack()">← もどる</button>
+    <button class="back" onclick="location.href='index.html'" style="font-size:14px">TOP 🏠</button>
+  </div>
+  <div class="perfect-body">
+    <div class="confetti-wrap" id="confetti-wrap"></div>
+    <div class="emoji-rain">🎉🏆🎊</div>
+    <div class="perfect-title" id="perf-title"></div>
+    <div class="perfect-sub">🌟 パーフェクト！！！ 🌟</div>
+    <div class="perfect-frac" id="perf-frac"></div>
+    <div style="width:100%;z-index:10">
+      <button class="btn btn-white" onclick="restart()">もう一度チャレンジ！</button>
+      <button class="btn btn-gold"  onclick="go('mode')">モード選択に戻る</button>
+      <button class="btn btn-dim"   onclick="go('home')">トップに戻る</button>
+    </div>
+  </div>
+  <div class="fsize-bar fsize-bar-global">
+    <button class="fsz on" onclick="setFS(this,'s')">標準</button>
+    <button class="fsz"    onclick="setFS(this,'m')">大</button>
+    <button class="fsz"    onclick="setFS(this,'l')">特大</button>
+  </div>
+</div>
+
+<script>
+const BRAILLE = {
+  A:[1],B:[1,2],C:[1,4],D:[1,4,5],E:[1,5],
+  F:[1,2,4],G:[1,2,4,5],H:[1,2,5],I:[2,4],J:[2,4,5],
+  K:[1,3],L:[1,2,3],M:[1,3,4],N:[1,3,4,5],O:[1,3,5],
+  P:[1,2,3,4],Q:[1,2,3,4,5],R:[1,2,3,5],S:[2,3,4],T:[2,3,4,5],
+  U:[1,3,6],V:[1,2,3,6],W:[2,4,5,6],X:[1,3,4,6],Y:[1,3,4,5,6],Z:[1,3,5,6],
+  '1':[1],'2':[1,2],'3':[1,4],'4':[1,4,5],'5':[1,5],
+  '6':[1,2,4],'7':[1,2,4,5],'8':[1,2,5],'9':[2,4],'0':[2,4,5],
+  'あ':[1],'い':[1,2],'う':[1,4],'え':[1,2,4],'お':[2,4],
+  'か':[1,6],'き':[1,2,6],'く':[1,4,6],'け':[1,2,4,6],'こ':[2,4,6],
+  'さ':[1,5,6],'し':[1,2,5,6],'す':[1,4,5,6],'せ':[1,2,4,5,6],'そ':[2,4,5,6],
+  'た':[1,3,5],'ち':[1,2,3,5],'つ':[1,3,4,5],'て':[1,2,3,4,5],'と':[2,3,4,5],
+  'な':[1,3],'に':[1,2,3],'ぬ':[1,3,4],'ね':[1,2,3,4],'の':[2,3,4],
+  'は':[1,3,6],'ひ':[1,2,3,6],'ふ':[1,3,4,6],'へ':[1,2,3,4,6],'ほ':[2,3,4,6],
+  'ま':[1,3,5,6],'み':[1,2,3,5,6],'む':[1,3,4,5,6],'め':[1,2,3,4,5,6],'も':[2,3,4,5,6],
+  'や':[3,4],'ゆ':[3,4,6],'よ':[3,4,5],
+  'ら':[1,5],'り':[1,2,5],'る':[1,4,5],'れ':[1,2,4,5],'ろ':[2,4,5],
+  'わ':[3],'を':[3,5],'ん':[3,5,6],
+  'っ':[2],'ー':[2,5],'、':[5,6],'。':[2,5,6],'！':[2,3,5],'？':[2,6]
+};
+
+const ALPHA = {
+  A:'あ',B:'い',C:'う',D:'る',E:'ら',F:'え',G:'れ',H:'り',I:'お',J:'ろ',
+  K:'な',L:'に',M:'ぬ',N:'つ',O:'た',P:'ね',Q:'て',R:'ち',S:'の',T:'と',
+  U:'は',V:'ひ',W:'そ',X:'ふ',Y:'む',Z:'ま'
+};
+const JP = {
+  'あ':'あ行①','い':'あ行②','う':'あ行③','え':'あ行④','お':'あ行⑤',
+  'か':'か行①','き':'か行②','く':'か行③','け':'か行④','こ':'か行⑤',
+  'さ':'さ行①','し':'さ行②','す':'さ行③','せ':'さ行④','そ':'さ行⑤',
+  'た':'た行①','ち':'た行②','つ':'た行③','て':'た行④','と':'た行⑤',
+  'な':'な行①','に':'な行②','ぬ':'な行③','ね':'な行④','の':'な行⑤',
+  'は':'は行①','ひ':'は行②','ふ':'は行③','へ':'は行④','ほ':'は行⑤',
+  'ま':'ま行①','み':'ま行②','む':'ま行③','め':'ま行④','も':'ま行⑤',
+  'や':'や①','ゆ':'や②','よ':'や③',
+  'ら':'ら行①','り':'ら行②','る':'ら行③','れ':'ら行④','ろ':'ら行⑤',
+  'わ':'わ行①','を':'わ行②','ん':'ん',
+  'っ':'小さいつ','ー':'長音符','、':'読点','。':'句点','！':'感嘆符','？':'疑問符'
+};
+
+let SET='alpha', ORDER='random', MODE='card', HARD=false, HARD_BM=null;
+let deck=[], idx=0, ok=0, total=0;
+let flipped=false, locked=false;
+let BM='v';
+let curKey=null;
+
+/* ── 点字描画 ── */
+window.renderBraille = function renderBraille(key, container, small, forceBM) {
+  container.innerHTML='';
+  const on=new Set(BRAILLE[key]||[]);
+  const bm = forceBM || BM;
+  const sm = small ? ' br-sm' : '';
+  if (bm==='v') {
+    const g=document.createElement('div');
+    g.className='br-v'+sm;
+    [1,4,2,5,3,6].forEach(n=>{
+      const d=document.createElement('div');
+      d.className='dot'+(on.has(n)?'':' off');
+      g.appendChild(d);
+    });
+    container.appendChild(g);
+  } else {
+    const g=document.createElement('div');
+    g.className='br-h'+sm;
+    [3,2,1].forEach(n=>{
+      const d=document.createElement('div');
+      d.className='dot'+(on.has(n)?'':' off');
+      g.appendChild(d);
+    });
+    const sep=document.createElement('div');
+    sep.className='br-h-sep';
+    g.appendChild(sep);
+    [4,5,6].forEach(n=>{
+      const d=document.createElement('div');
+      d.className='dot'+(on.has(n)?'':' off');
+      g.appendChild(d);
+    });
+    container.appendChild(g);
+  }
+}
+
+window.renderBrailleHard = function renderBrailleHard(key, container) {
+  container.innerHTML='';
+  const on=new Set(BRAILLE[key]||[]);
+  const bm = HARD_BM || BM;
+  const wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;align-items:center;gap:8px;';
+  const dotStyle = (n) =>
+    'width:28px;height:28px;border-radius:50%;background:'+(on.has(n)?'#fff':'#000')+';border:1px solid #fff;';
+
+  if (bm==='h') {
+    [3,2,1].forEach(n=>{ const d=document.createElement('div'); d.style.cssText=dotStyle(n); wrap.appendChild(d); });
+    const sep=document.createElement('div'); sep.style.width='14px'; wrap.appendChild(sep);
+    [4,5,6].forEach(n=>{ const d=document.createElement('div'); d.style.cssText=dotStyle(n); wrap.appendChild(d); });
+  } else {
+    const g=document.createElement('div');
+    g.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;';
+    [1,4,2,5,3,6].forEach(n=>{ const d=document.createElement('div'); d.style.cssText=dotStyle(n); g.appendChild(d); });
+    wrap.appendChild(g);
+  }
+  container.appendChild(wrap);
+}
+
+window.setBM = function setBM(m) {
+  BM=m;
+  document.getElementById('btog-v').classList.toggle('on',m==='v');
+  document.getElementById('btog-h').classList.toggle('on',m==='h');
+  if (curKey) renderBraille(curKey, document.getElementById('cb-braille'), false);
+}
+
+// 修正10：4択モード用縦横切替
+let QUIZ_BM = 'v';
+window.setQuizBM = function setQuizBM(m) {
+  QUIZ_BM = m;
+  document.getElementById('quiz-btog-v').classList.toggle('on', m==='v');
+  document.getElementById('quiz-btog-h').classList.toggle('on', m==='h');
+  // 現在の問題の選択肢を再描画
+  if (deck.length > 0 && idx > 0) {
+    const {k} = deck[idx-1] || deck[0];
+    showQuiz();
+  }
+}
+
+window.setFS = function setFS(btn, sz) {
+  document.body.classList.remove('fs-s','fs-m','fs-l');
+  document.body.classList.add('fs-'+sz);
+  document.querySelectorAll('.fsize-bar-global .fsz').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.fsize-bar-global .fsz').forEach(b => {
+    if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'"+sz+"'")) b.classList.add('on');
+  });
+}
+
+/* ── helpers ── */
+window.data = function data() { return SET==='alpha'?ALPHA:JP; }
+window.allKeys = function allKeys() { return Object.keys(data()); }
+window.buildDeck = function buildDeck() {
+  let d=Object.entries(data()).map(([k,v])=>({k,v}));
+  if (ORDER==='random') shuffle(d);
+  return d;
+}
+window.shuffle = function shuffle(a) {
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+let navHistory=[];
+
+/* ── navigation ── */
+window.go = function go(name) {
+  const id=name.startsWith('s-')?name:'s-'+name;
+  const current=document.querySelector('.screen.active');
+  if (current && current.id!==id) navHistory.push(current.id);
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+window.goBack = function goBack() {
+  if (navHistory.length===0){location.href='index.html';return;}
+  const prev=navHistory.pop();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(prev).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+window.pickSet = function pickSet(s) {
+  SET=s;
+  document.getElementById('mode-title').textContent=s==='alpha'?'🔤 アルファベット練習':'🇯🇵 日本語練習';
+  document.getElementById('t-ord').textContent=s==='alpha'?'アルファベット順':'あいうえお順';
+  const isAlpha = s==='alpha';
+  document.getElementById('btn-hard-card').style.display = isAlpha?'block':'none';
+  document.getElementById('btn-hard-quiz').style.display = isAlpha?'block':'none';
+  document.getElementById('btn-jp-challenge').style.display = isAlpha?'none':'block';
+  go('mode');
+}
+
+window.setOrder = function setOrder(o) {
+  ORDER=o;
+  document.getElementById('t-rand').classList.toggle('on',o==='random');
+  document.getElementById('t-ord').classList.toggle('on',o==='ordered');
+}
+
+window.startMode = function startMode(m, hard, hardBM) {
+  MODE=m; HARD=hard; HARD_BM=hardBM;
+  deck=buildDeck(); idx=ok=total=0;
+  if (m==='card'){go('card');showCard();}
+  else {
+    // 修正10：アルファベット通常4択のみ縦横バー表示
+    const showBmBar = (SET==='alpha' && !hard);
+    document.getElementById('quiz-bm-bar').style.display = showBmBar ? 'flex' : 'none';
+    if (showBmBar) { QUIZ_BM='v'; document.getElementById('quiz-btog-v').classList.add('on'); document.getElementById('quiz-btog-h').classList.remove('on'); }
+    go('quiz');showQuiz();
+  }
+}
+window.restart = function restart(){startMode(MODE,HARD,HARD_BM);}
+
+/* ── card mode ── */
+window.showCard = function showCard() {
+  if (idx>=deck.length){showResult();return;}
+  const {k,v}=deck[idx];
+  curKey=k; flipped=false;
+
+  document.getElementById('card-mid').classList.remove('flip');
+  document.getElementById('card-outer').style.pointerEvents='';
+  document.getElementById('card-acts').style.display='none';
+
+  const scoreLabel = HARD ? (HARD_BM==='h'?'入力表記🔥🔥🔥':'点字表記🔥') : '';
+  document.getElementById('card-score').textContent=
+    (idx+1)+' / '+deck.length+' 問目　　正解 '+ok+' 問'+(scoreLabel?' '+scoreLabel:'');
+
+  const btogWrap = document.getElementById('cb-btog-wrap');
+
+  if (HARD) {
+    // チャレンジ：表面=点字、裏面=文字
+    document.getElementById('cf-key').innerHTML='';
+    renderBrailleHard(k, document.getElementById('cf-key'));
+    document.getElementById('cb-val').textContent=SET==='alpha'?k+' = '+v:k;
+    btogWrap.style.display='none';
+    document.getElementById('cb-braille').innerHTML='';
+  } else {
+    // 通常：表面=文字、裏面=点字
+    btogWrap.style.display='flex';
+    const cfEl=document.getElementById('cf-key');
+    if(k==='っ'){
+      cfEl.innerHTML='っ<div style="font-size:14px;color:#fff;margin-top:6px;">（小さいつ）</div>';
+    } else {
+      cfEl.textContent=k;
+    }
+    // 日本語は裏面にひらがな不要（点字のみ）
+    document.getElementById('cb-val').textContent=SET==='alpha'?v:'';
+    renderBraille(k, document.getElementById('cb-braille'), false);
+  }
+}
+
+window.flipCard = function flipCard() {
+  if (flipped) return;
+  flipped=true;
+  document.getElementById('card-mid').classList.add('flip');
+  document.getElementById('card-outer').style.pointerEvents='none';
+  document.getElementById('card-acts').style.display='flex';
+}
+
+window.unflipCard = function unflipCard(e) {
+  e.stopPropagation();
+  if (!flipped) return;
+  flipped=false;
+  document.getElementById('card-mid').classList.remove('flip');
+  document.getElementById('card-outer').style.pointerEvents='';
+  document.getElementById('card-acts').style.display='none';
+}
+
+window.rate = function rate(isOk) {
+  if (isOk) ok++;
+  total++; idx++; showCard();
+}
+
+/* ── quiz mode ── */
+window.showQuiz = function showQuiz() {
+  if (idx>=deck.length){showResult();return;}
+  locked=false;
+
+  const {k,v}=deck[idx];
+  const scoreLabel = HARD ? (HARD_BM==='h'?'入力表記🔥🔥🔥':'点字表記🔥') : '';
+  document.getElementById('quiz-score').textContent=
+    (idx+1)+' / '+deck.length+' 問目　　正解 '+ok+' 問'+(scoreLabel?' '+scoreLabel:'');
+
+  const fbRow=document.getElementById('fb-row');
+  fbRow.className='fb-row';
+  document.getElementById('fb-text').textContent='';
+  document.getElementById('fb-text').className='fb-text';
+
+  const qKeyEl=document.getElementById('q-key');
+  if (HARD) {
+    qKeyEl.innerHTML='';
+    renderBrailleHard(k, qKeyEl);
+  } else {
+    if(k==='っ'){
+      qKeyEl.innerHTML='っ<div style="font-size:14px;color:#fff;margin-top:4px;">（小さいつ）</div>';
+    } else {
+      qKeyEl.textContent=k;
+    }
+  }
+
+  const wrongKeys=shuffle(allKeys().filter(kk=>kk!==k)).slice(0,3);
+  const choiceKeys=shuffle([k,...wrongKeys]);
+  const d=data();
+
+  const box=document.getElementById('q-choices');
+  box.innerHTML='';
+  choiceKeys.forEach(ck=>{
+    const b=document.createElement('button');
+    b.className='ch'; b.dataset.qkey=ck;
+
+    if (HARD) {
+      // チャレンジ：選択肢=ひらがなのみ
+      const span=document.createElement('span');
+      if(ck==='っ'){
+        span.innerHTML='っ<span style="font-size:11px;"> （小）</span>';
+      } else {
+        span.textContent=ck;
+      }
+      b.appendChild(span);
+    } else if (SET==='jp') {
+      // 日本語通常：問題=ひらがな、選択肢=縦点字固定
+      renderBraille(ck, b, true, 'v');
+    } else {
+      // アルファベット通常：縦横バーの選択に従う
+      const bdiv=document.createElement('div');
+      renderBraille(ck, bdiv, true, QUIZ_BM);
+      b.appendChild(bdiv);
+    }
+    b.addEventListener('click',()=>answer(ck,k));
+    box.appendChild(b);
+  });
+}
+
+window.answer = function answer(chosenKey, correctKey) {
+  if (locked) return;
+  locked=true;
+  const isOk=chosenKey===correctKey;
+  if (isOk) ok++;
+  total++; idx++;
+
+  document.querySelectorAll('.ch').forEach(b=>{
+    b.style.pointerEvents='none';
+    const bk=b.dataset.qkey;
+    if      (bk===correctKey) b.classList.add('ok');
+    else if (bk===chosenKey)  b.classList.add('ng');
+    else                       b.classList.add('dim');
+  });
+
+  const fbText=document.getElementById('fb-text');
+  const fbRow=document.getElementById('fb-row');
+
+  if (isOk) {
+    fbText.textContent='正解！';
+    fbText.className='fb-text ok';
+  } else {
+    // バイブ
+    if (navigator.vibrate) navigator.vibrate(200);
+    const correctVal = HARD ? correctKey : data()[correctKey];
+    const displayVal = correctVal || correctKey;
+    fbText.innerHTML='残念！　正解は「<span style="color:#fff">'+displayVal+'</span>」';
+    fbText.className='fb-text ng';
+  }
+  fbRow.className='fb-row show';
+}
+
+window.nextQuiz = function nextQuiz() {
+  showQuiz();
+}
+
+/* ── result ── */
+window.showResult = function showResult() {
+  const pct=total>0?Math.round(ok/total*100):0;
+  const setLabel=SET==='alpha'?'アルファベット':'日本語';
+  const modeLabel=MODE==='card'?'カードモード':'4択モード';
+
+  if (pct===100) {
+    document.getElementById('perf-title').textContent='🎉 100% 達成！！🎉';
+    document.getElementById('perf-frac').textContent=ok+' / '+total+' 問すべて正解！';
+    launchConfetti();
+    go('perfect');
+  } else {
+    document.getElementById('r-head').textContent=setLabel+'練習　'+modeLabel+'　終了！';
+    document.getElementById('r-pct').textContent=pct+'%';
+    document.getElementById('r-frac').textContent=ok+' / '+total+' 問正解';
+    go('result');
+  }
+}
+
+window.launchConfetti = function launchConfetti() {
+  const wrap=document.getElementById('confetti-wrap');
+  wrap.innerHTML='';
+  const colors=['#fbbf24','#f87171','#4ade80','#60a5fa','#c084fc','#fb923c','#fff'];
+  for(let i=0;i<80;i++){
+    const c=document.createElement('div');
+    c.className='confetti';
+    const color=colors[Math.floor(Math.random()*colors.length)];
+    const size=Math.random()*10+6;
+    c.style.cssText=`left:${Math.random()*100}%;width:${size}px;height:${size}px;background:${color};animation-duration:${Math.random()*2+2}s;animation-delay:${Math.random()*2}s;border-radius:${Math.random()>.5?'50%':'2px'};`;
+    wrap.appendChild(c);
+  }
+}
+</script>
+</body>
+</html>
